@@ -153,7 +153,7 @@ function every_frame(cur_time: number) {
   col2_2.setHSL(v2_2, 1, .5);
 
   variable_left_element.style.backgroundColor = "#" + col2_1.getHexString();
-  variable_left_element.style.backgroundColor = "#" + col2_2.getHexString();
+  variable_right_element.style.backgroundColor = "#" + col2_2.getHexString();
 
   if (resizeRendererToDisplaySize(renderer)) {
     const canvas = renderer.domElement;
