@@ -53,6 +53,7 @@ const controls = new OrbitControls(camera_1, renderer.domElement);
 
 let last_time = 0;
 function every_frame(cur_time: number) {
+  // @ts-ignore
   let delta_time = (cur_time - last_time) * .001;
   last_time = cur_time;
 
