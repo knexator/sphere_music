@@ -1,5 +1,6 @@
 import * as THREE from 'three';
-import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+// import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { TrackballControls } from 'three/addons/controls/TrackballControls.js';
 
 THREE.DefaultLoadingManager.onLoad = () => {
   requestAnimationFrame(every_frame);
@@ -20,7 +21,11 @@ camera_2.lookAt(0, 0, 0);
 
 // camera_1.add(camera_2);
 
-const controls = new OrbitControls(camera_1, renderer.domElement);
+const controls = new TrackballControls(camera_1, renderer.domElement);
+controls.dynamicDampingFactor = .9;
+controls.rotateSpeed = 5;
+controls.noPan = true;
+
 
 // ambient
 {
@@ -39,6 +44,7 @@ const controls = new OrbitControls(camera_1, renderer.domElement);
   scene.add(light);
 }
 
+// main sphere
 {
   const sphere_texture = (new THREE.TextureLoader()).load("https://s3-us-west-2.amazonaws.com/s.cdpn.io/141228/earthmap1k.jpg");
   const sphere_geo = new THREE.SphereGeometry(1, 32, 16);
@@ -49,6 +55,59 @@ const controls = new OrbitControls(camera_1, renderer.domElement);
   scene.add(sphere);
 }
 
+const players = new THREE.Object3D();
+scene.add(players);
+{
+  const players_geo = new THREE.PlaneGeometry(.1, .1);
+  const player_1_mat = new THREE.MeshPhongMaterial({ color: "#FFD524" });
+  const player_2_mat = new THREE.MeshPhongMaterial({ color: "#55185D" });
+  player_2_mat.side = THREE.BackSide;
+
+  const player_1 = new THREE.Mesh(players_geo, player_1_mat);
+  const player_2 = new THREE.Mesh(players_geo, player_2_mat);
+
+  player_1.add(new THREE.AxesHelper(.1));
+  player_2.add(new THREE.AxesHelper(.1));
+
+  player_1.position.setZ(1);
+  player_2.position.setZ(-1);
+  player_2.rotateX(Math.PI);
+  player_2.rotateY(Math.PI);
+
+  players.add(player_1, player_2);
+}
+
+let input_state = {
+  left: false,
+  right: false,
+  up: false,
+  down: false,
+};
+
+const input_to_keycode = {
+  left: "KeyD ArrowLeft".split(' '),
+  right: "KeyA ArrowRight".split(' '),
+  up: "KeyW ArrowUp".split(' '),
+  down: "KeyS ArrowDown".split(' '),
+};
+
+document.addEventListener("keydown", ev => {
+  for (const [input, keycodes] of Object.entries(input_to_keycode)) {
+    if (keycodes.includes(ev.code)) {
+      // @ts-ignore
+      input_state[input] = true;
+    }
+  }
+});
+
+document.addEventListener("keyup", ev => {
+  for (const [input, keycodes] of Object.entries(input_to_keycode)) {
+    if (keycodes.includes(ev.code)) {
+      // @ts-ignore
+      input_state[input] = false;
+    }
+  }
+});
 
 
 let last_time = 0;
@@ -58,6 +117,14 @@ function every_frame(cur_time: number) {
   last_time = cur_time;
 
   controls.update();
+
+  let movement_vector = new THREE.Vector2(
+    Number(input_state.right) - Number(input_state.left),
+    Number(input_state.up) - Number(input_state.down),
+  );
+
+  players.rotateY(- movement_vector.x * delta_time);
+  players.rotateX(- movement_vector.y * delta_time);
 
   if (resizeRendererToDisplaySize(renderer)) {
     const canvas = renderer.domElement;
