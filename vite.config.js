@@ -1,5 +1,5 @@
 import { defineConfig } from 'vite'
 
 export default defineConfig({
-  base: '/juicy_grid/'
+  base: '/sphere_music/'
 })
