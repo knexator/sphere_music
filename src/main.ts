@@ -112,6 +112,9 @@ document.addEventListener("keyup", ev => {
   }
 });
 
+// temp, to be changed by sounds
+let variable_left_element = document.querySelector<HTMLDivElement>("#variable_1_left")!
+let variable_right_element = document.querySelector<HTMLDivElement>("#variable_1_right")!
 
 let last_time = 0;
 function every_frame(cur_time: number) {
@@ -135,11 +138,22 @@ function every_frame(cur_time: number) {
   let v1_1 = noise(pos_1.x, pos_1.y, pos_1.z);
   let v1_2 = noise(pos_2.x + .3, pos_2.z + .1, pos_2.y + .8);
 
+  let v2_1 = noise(pos_1.y, pos_1.z, pos_1.x);
+  let v2_2 = noise(pos_2.z + .1, pos_2.y + .8, pos_2.x + .3);
+
+  // temp, to be changed to sounds
   let col1_1 = new THREE.Color();
   col1_1.setHSL(v1_1, 1, .5);
-
   let col1_2 = new THREE.Color();
   col1_2.setHSL(v1_2, 1, .5);
+
+  let col2_1 = new THREE.Color();
+  col2_1.setHSL(v2_1, 1, .5);
+  let col2_2 = new THREE.Color();
+  col2_2.setHSL(v2_2, 1, .5);
+
+  variable_left_element.style.backgroundColor = "#" + col2_1.getHexString();
+  variable_left_element.style.backgroundColor = "#" + col2_2.getHexString();
 
   if (resizeRendererToDisplaySize(renderer)) {
     const canvas = renderer.domElement;
