@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 // import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { TrackballControls } from 'three/addons/controls/TrackballControls.js';
+import { noise } from '@chriscourses/perlin-noise';
 
 THREE.DefaultLoadingManager.onLoad = () => {
   requestAnimationFrame(every_frame);
@@ -55,6 +56,8 @@ controls.noPan = true;
   scene.add(sphere);
 }
 
+let pos_1 = new THREE.Vector3();
+let pos_2 = new THREE.Vector3();
 const players = new THREE.Object3D();
 scene.add(players);
 {
@@ -126,6 +129,18 @@ function every_frame(cur_time: number) {
   players.rotateY(- movement_vector.x * delta_time);
   players.rotateX(- movement_vector.y * delta_time);
 
+  players.children[0].getWorldPosition(pos_1);
+  players.children[1].getWorldPosition(pos_2);
+
+  let v1_1 = noise(pos_1.x, pos_1.y, pos_1.z);
+  let v1_2 = noise(pos_2.x + .3, pos_2.z + .1, pos_2.y + .8);
+
+  let col1_1 = new THREE.Color();
+  col1_1.setHSL(v1_1, 1, .5);
+
+  let col1_2 = new THREE.Color();
+  col1_2.setHSL(v1_2, 1, .5);
+
   if (resizeRendererToDisplaySize(renderer)) {
     const canvas = renderer.domElement;
     camera_1.aspect = .5 * canvas.clientWidth / canvas.clientHeight;
@@ -134,6 +149,7 @@ function every_frame(cur_time: number) {
     camera_2.updateProjectionMatrix();
   }
 
+  renderer.setClearColor(col1_1);
   renderer.setViewport(0, 0, canvas.clientWidth / 2, canvas.clientHeight);
   renderer.setScissor(0, 0, canvas.clientWidth / 2, canvas.clientHeight);
   renderer.setScissorTest(true);
@@ -143,6 +159,7 @@ function every_frame(cur_time: number) {
   camera_2.position.multiplyScalar(-1);
   camera_2.lookAt(0, 0, 0);
 
+  renderer.setClearColor(col1_2);
   renderer.setViewport(canvas.clientWidth / 2, 0, canvas.clientWidth / 2, canvas.clientHeight);
   renderer.setScissor(canvas.clientWidth / 2, 0, canvas.clientWidth / 2, canvas.clientHeight);
   renderer.setScissorTest(true);
