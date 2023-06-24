@@ -37,11 +37,18 @@
       right: 30vw;
       background-color: cyan;
     }
+
+    #loading {
+      position: absolute;
+      font-size: 5vw;
+      z-index: 1;
+    }
   </style>
 </head>
 
 <body>
   <canvas id="c"></canvas>
+  <div id="loading">Loading...</div>
   <div class="variable_display" id="variable_1_left"></div>
   <div class="variable_display" id="variable_1_right"></div>
   <script type="module" src="/src/main.ts"></script>

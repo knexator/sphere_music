@@ -2,9 +2,22 @@ import * as THREE from 'three';
 // import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { TrackballControls } from 'three/addons/controls/TrackballControls.js';
 import { noise } from '@chriscourses/perlin-noise';
+import music_1_url from "./music/1.mp3?url";
+import music_2_url from "./music/2.mp3?url";
+import music_3_url from "./music/3.mp3?url";
+import music_4_url from "./music/4.mp3?url";
+import music_5_url from "./music/5.mp3?url";
+import music_6_url from "./music/6.mp3?url";
+import music_7_url from "./music/7.mp3?url";
+import music_8_url from "./music/8.mp3?url";
+
+const loading_div = document.querySelector<HTMLDivElement>("#loading")!;
 
 THREE.DefaultLoadingManager.onLoad = () => {
-  requestAnimationFrame(every_frame);
+  window.addEventListener("pointerdown", _ => {
+    init_audio();
+  }, { once: true });
+  loading_div.innerText = "Click to start!";
 }
 
 const canvas = document.querySelector<HTMLCanvasElement>('#c')!;
@@ -54,6 +67,45 @@ controls.noPan = true;
   })
   const sphere = new THREE.Mesh(sphere_geo, sphere_mat);
   scene.add(sphere);
+}
+
+// load a sound and set it as the Audio object's buffer
+const audioLoader = new THREE.AudioLoader();
+let audio_promises = [
+  audioLoader.loadAsync(music_1_url),
+  audioLoader.loadAsync(music_2_url),
+  audioLoader.loadAsync(music_3_url),
+  audioLoader.loadAsync(music_4_url),
+  audioLoader.loadAsync(music_5_url),
+  audioLoader.loadAsync(music_6_url),
+  audioLoader.loadAsync(music_7_url),
+  audioLoader.loadAsync(music_8_url),
+];
+
+let sound_objects_left: THREE.Audio<GainNode>[];
+async function init_audio() {
+  const audio_buffers = await Promise.all(audio_promises);
+
+  // create an AudioListener and add it to the camera
+  const listener = new THREE.AudioListener();
+  camera_1.add(listener);
+
+  // todo: different ears
+  // const pannerOptions = { pan: -1 };
+  // const panner = new StereoPannerNode(listener.context, pannerOptions);
+  // listener.setFilter(panner);
+
+  sound_objects_left = audio_buffers.map(buffer => {
+    const sound_object = new THREE.Audio(listener);
+    sound_object.setBuffer(buffer);
+    sound_object.setLoop(true);
+    sound_object.setVolume(0.0);
+    sound_object.play();
+    return sound_object;
+  });
+
+  loading_div.style.display = "none";
+  requestAnimationFrame(every_frame);
 }
 
 let pos_1 = new THREE.Vector3();
@@ -140,6 +192,18 @@ function every_frame(cur_time: number) {
 
   let v2_1 = noise(pos_1.y, pos_1.z, pos_1.x);
   let v2_2 = noise(pos_2.z + .1, pos_2.y + .8, pos_2.x + .3);
+
+
+  sound_objects_left.forEach(x => x.setVolume(0));
+  let sound_index = v1_1 * (sound_objects_left.length - 1);
+  let sound_frac = sound_index % 1;
+  if (Math.ceil(sound_index) === Math.floor(sound_index)) {
+    // edge case
+    sound_objects_left[Math.floor(sound_index)].setVolume(1);
+  } else {
+    sound_objects_left[Math.ceil(sound_index)].setVolume(sound_frac);
+    sound_objects_left[Math.floor(sound_index)].setVolume(1 - sound_frac);
+  }
 
   // temp, to be changed to sounds
   let col1_1 = new THREE.Color();
