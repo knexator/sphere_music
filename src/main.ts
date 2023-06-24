@@ -137,13 +137,17 @@ let input_state = {
   right: false,
   up: false,
   down: false,
+  cw: false,
+  ccw: false,
 };
 
 const input_to_keycode = {
-  left: "KeyD ArrowLeft".split(' '),
-  right: "KeyA ArrowRight".split(' '),
+  cw: "KeyD ArrowLeft".split(' '),
+  ccw: "KeyA ArrowRight".split(' '),
   up: "KeyW ArrowUp".split(' '),
   down: "KeyS ArrowDown".split(' '),
+  left: "KeyE",
+  right: "KeyQ",
 };
 
 document.addEventListener("keydown", ev => {
@@ -181,6 +185,8 @@ function every_frame(cur_time: number) {
     Number(input_state.up) - Number(input_state.down),
   );
 
+  let rot = Number(input_state.ccw) - Number(input_state.cw);
+  players.rotateZ(rot * 4 * delta_time);
   players.rotateY(- movement_vector.x * delta_time);
   players.rotateX(- movement_vector.y * delta_time);
 
