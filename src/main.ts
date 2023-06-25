@@ -4,24 +4,14 @@ import GUI from 'lil-gui';
 import { TrackballControls } from 'three/addons/controls/TrackballControls.js';
 import { inverseLerp, lerp } from 'three/src/math/MathUtils.js';
 import { noise } from '@chriscourses/perlin-noise';
-import music_acid_1_url from "./music_acid/1.mp3?url";
-import music_acid_2_url from "./music_acid/2.mp3?url";
-import music_acid_3_url from "./music_acid/3.mp3?url";
-import music_acid_4_url from "./music_acid/4.mp3?url";
-import music_acid_5_url from "./music_acid/5.mp3?url";
-import music_acid_6_url from "./music_acid/6.mp3?url";
-import music_acid_7_url from "./music_acid/7.mp3?url";
-import music_acid_8_url from "./music_acid/8.mp3?url";
 
-import music_chords_1_url from "./music_chords/Do3.mp3?url";
-import music_chords_2_url from "./music_chords/Re3.mp3?url";
-import music_chords_3_url from "./music_chords/Mi3.mp3?url";
-import music_chords_4_url from "./music_chords/Fa3.mp3?url";
-import music_chords_5_url from "./music_chords/Sol3.mp3?url";
-import music_chords_6_url from "./music_chords/La3.mp3?url";
-import music_chords_7_url from "./music_chords/Si3.mp3?url";
-import music_chords_8_url from "./music_chords/Do4.mp3?url";
+let music_acid_urls = fromCount(8, k => {
+  return new URL(`./music_acid/${k + 1}.mp3`, import.meta.url).href
+})
 
+let music_chords_urls = fromCount(8, k => {
+  return new URL(`./music_chords/${k + 1}.mp3`, import.meta.url).href
+})
 
 const loading_div = document.querySelector<HTMLDivElement>("#loading")!;
 
@@ -91,27 +81,8 @@ controls.noPan = true;
 
 // load a sound and set it as the Audio object's buffer
 const audioLoader = new THREE.AudioLoader();
-let audio_acid_promises = [
-  audioLoader.loadAsync(music_acid_1_url),
-  audioLoader.loadAsync(music_acid_2_url),
-  audioLoader.loadAsync(music_acid_3_url),
-  audioLoader.loadAsync(music_acid_4_url),
-  audioLoader.loadAsync(music_acid_5_url),
-  audioLoader.loadAsync(music_acid_6_url),
-  audioLoader.loadAsync(music_acid_7_url),
-  audioLoader.loadAsync(music_acid_8_url),
-];
-
-let audio_chords_promises = [
-  audioLoader.loadAsync(music_chords_1_url),
-  audioLoader.loadAsync(music_chords_2_url),
-  audioLoader.loadAsync(music_chords_3_url),
-  audioLoader.loadAsync(music_chords_4_url),
-  audioLoader.loadAsync(music_chords_5_url),
-  audioLoader.loadAsync(music_chords_6_url),
-  audioLoader.loadAsync(music_chords_7_url),
-  audioLoader.loadAsync(music_chords_8_url),
-];
+let audio_acid_promises = music_acid_urls.map(url => audioLoader.loadAsync(url));
+let audio_chords_promises = music_chords_urls.map(url => audioLoader.loadAsync(url));
 
 let sound_acid_left: THREE.Audio<GainNode>[];
 let sound_chords_left: THREE.Audio<GainNode>[];
@@ -330,4 +301,12 @@ function clamp(value: number, a: number, b: number) {
 function remap(value: number, src_min: number, src_max: number, dst_min: number, dst_max: number): number {
   let t = inverseLerp(src_min, src_max, value);
   return lerp(dst_min, dst_max, t);
+}
+
+export function fromCount<T>(n: number, callback: (index: number) => T): T[] {
+  let result = Array(n);
+  for (let k = 0; k < n; k++) {
+    result[k] = callback(k);
+  }
+  return result;
 }
