@@ -1,15 +1,27 @@
 import * as THREE from 'three';
+import GUI from 'lil-gui';
 // import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { TrackballControls } from 'three/addons/controls/TrackballControls.js';
+import { inverseLerp, lerp } from 'three/src/math/MathUtils.js';
 import { noise } from '@chriscourses/perlin-noise';
-import music_1_url from "./music/1.mp3?url";
-import music_2_url from "./music/2.mp3?url";
-import music_3_url from "./music/3.mp3?url";
-import music_4_url from "./music/4.mp3?url";
-import music_5_url from "./music/5.mp3?url";
-import music_6_url from "./music/6.mp3?url";
-import music_7_url from "./music/7.mp3?url";
-import music_8_url from "./music/8.mp3?url";
+import music_acid_1_url from "./music_acid/1.mp3?url";
+import music_acid_2_url from "./music_acid/2.mp3?url";
+import music_acid_3_url from "./music_acid/3.mp3?url";
+import music_acid_4_url from "./music_acid/4.mp3?url";
+import music_acid_5_url from "./music_acid/5.mp3?url";
+import music_acid_6_url from "./music_acid/6.mp3?url";
+import music_acid_7_url from "./music_acid/7.mp3?url";
+import music_acid_8_url from "./music_acid/8.mp3?url";
+
+import music_chords_1_url from "./music_chords/Do3.mp3?url";
+import music_chords_2_url from "./music_chords/Re3.mp3?url";
+import music_chords_3_url from "./music_chords/Mi3.mp3?url";
+import music_chords_4_url from "./music_chords/Fa3.mp3?url";
+import music_chords_5_url from "./music_chords/Sol3.mp3?url";
+import music_chords_6_url from "./music_chords/La3.mp3?url";
+import music_chords_7_url from "./music_chords/Si3.mp3?url";
+import music_chords_8_url from "./music_chords/Do4.mp3?url";
+
 
 const loading_div = document.querySelector<HTMLDivElement>("#loading")!;
 
@@ -19,6 +31,14 @@ THREE.DefaultLoadingManager.onLoad = () => {
   }, { once: true });
   loading_div.innerText = "Click to start!";
 }
+
+const gui = new GUI();
+const CONFIG = {
+  music_1: "chords",
+  fade_between_loops: true,
+}
+gui.add(CONFIG, 'fade_between_loops');
+gui.add(CONFIG, 'music_1', ["chords", "acid"]);
 
 const canvas = document.querySelector<HTMLCanvasElement>('#c')!;
 const scene = new THREE.Scene();
@@ -71,20 +91,40 @@ controls.noPan = true;
 
 // load a sound and set it as the Audio object's buffer
 const audioLoader = new THREE.AudioLoader();
-let audio_promises = [
-  audioLoader.loadAsync(music_1_url),
-  audioLoader.loadAsync(music_2_url),
-  audioLoader.loadAsync(music_3_url),
-  audioLoader.loadAsync(music_4_url),
-  audioLoader.loadAsync(music_5_url),
-  audioLoader.loadAsync(music_6_url),
-  audioLoader.loadAsync(music_7_url),
-  audioLoader.loadAsync(music_8_url),
+let audio_acid_promises = [
+  audioLoader.loadAsync(music_acid_1_url),
+  audioLoader.loadAsync(music_acid_2_url),
+  audioLoader.loadAsync(music_acid_3_url),
+  audioLoader.loadAsync(music_acid_4_url),
+  audioLoader.loadAsync(music_acid_5_url),
+  audioLoader.loadAsync(music_acid_6_url),
+  audioLoader.loadAsync(music_acid_7_url),
+  audioLoader.loadAsync(music_acid_8_url),
 ];
 
-let sound_objects_left: THREE.Audio<GainNode>[];
+let audio_chords_promises = [
+  audioLoader.loadAsync(music_chords_1_url),
+  audioLoader.loadAsync(music_chords_2_url),
+  audioLoader.loadAsync(music_chords_3_url),
+  audioLoader.loadAsync(music_chords_4_url),
+  audioLoader.loadAsync(music_chords_5_url),
+  audioLoader.loadAsync(music_chords_6_url),
+  audioLoader.loadAsync(music_chords_7_url),
+  audioLoader.loadAsync(music_chords_8_url),
+];
+
+let sound_acid_left: THREE.Audio<GainNode>[];
+let sound_chords_left: THREE.Audio<GainNode>[];
 async function init_audio() {
-  const audio_buffers = await Promise.all(audio_promises);
+  const audio_acid_buffers = await Promise.all(audio_acid_promises);
+  const audio_chords_buffers = await Promise.all(audio_chords_promises);
+
+  // const audio_ctx = new AudioContext();
+  // const source = audio_ctx.createBufferSource();
+  // source.buffer = audio_buffers[0];
+  // source.loop = true;
+  // source.start();
+  // source.connect(audio_ctx.destination);
 
   // create an AudioListener and add it to the camera
   const listener = new THREE.AudioListener();
@@ -95,7 +135,16 @@ async function init_audio() {
   // const panner = new StereoPannerNode(listener.context, pannerOptions);
   // listener.setFilter(panner);
 
-  sound_objects_left = audio_buffers.map(buffer => {
+  sound_acid_left = audio_acid_buffers.map(buffer => {
+    const sound_object = new THREE.Audio(listener);
+    sound_object.setBuffer(buffer);
+    sound_object.setLoop(true);
+    sound_object.setVolume(0.0);
+    sound_object.play();
+    return sound_object;
+  });
+
+  sound_chords_left = audio_chords_buffers.map(buffer => {
     const sound_object = new THREE.Audio(listener);
     sound_object.setBuffer(buffer);
     sound_object.setLoop(true);
@@ -196,19 +245,25 @@ function every_frame(cur_time: number) {
   let v1_1 = noise(pos_1.x, pos_1.y, pos_1.z);
   let v1_2 = noise(pos_2.x + .3, pos_2.z + .1, pos_2.y + .8);
 
+  // cheating until we get a better mapping
+  v1_1 = clamp(remap(v1_1, .25, .75, 0, 1), 0, 1);
+
   let v2_1 = noise(pos_1.y, pos_1.z, pos_1.x);
   let v2_2 = noise(pos_2.z + .1, pos_2.y + .8, pos_2.x + .3);
 
 
-  sound_objects_left.forEach(x => x.setVolume(0));
-  let sound_index = v1_1 * (sound_objects_left.length - 1);
+  sound_acid_left.forEach(x => x.setVolume(0));
+  sound_chords_left.forEach(x => x.setVolume(0));
+  let cur_sounds = CONFIG.music_1 === "chords" ? sound_chords_left : sound_acid_left;
+
+  let sound_index = v1_1 * (cur_sounds.length - 1);
   let sound_frac = sound_index % 1;
-  if (Math.ceil(sound_index) === Math.floor(sound_index)) {
-    // edge case
-    sound_objects_left[Math.floor(sound_index)].setVolume(1);
+  if (!CONFIG.fade_between_loops || Math.ceil(sound_index) === Math.floor(sound_index)) {
+    // edge case - no fade
+    cur_sounds[Math.floor(sound_index)].setVolume(1);
   } else {
-    sound_objects_left[Math.ceil(sound_index)].setVolume(sound_frac);
-    sound_objects_left[Math.floor(sound_index)].setVolume(1 - sound_frac);
+    cur_sounds[Math.ceil(sound_index)].setVolume(sound_frac);
+    cur_sounds[Math.floor(sound_index)].setVolume(1 - sound_frac);
   }
 
   // temp, to be changed to sounds
@@ -264,4 +319,15 @@ function resizeRendererToDisplaySize(renderer: THREE.WebGLRenderer) {
     // composer.setSize(width, height);
   }
   return needResize;
+}
+
+function clamp(value: number, a: number, b: number) {
+  if (value < a) return a;
+  if (value > b) return b;
+  return value;
+}
+
+function remap(value: number, src_min: number, src_max: number, dst_min: number, dst_max: number): number {
+  let t = inverseLerp(src_min, src_max, value);
+  return lerp(dst_min, dst_max, t);
 }
