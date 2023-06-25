@@ -28,7 +28,7 @@ const CONFIG = {
   fade_between_loops: false,
 }
 gui.add(CONFIG, 'fade_between_loops');
-gui.add(CONFIG, 'music_1', ["chords", "acid"]);
+gui.add(CONFIG, 'music_1', ["chords", "acid", "wave"]);
 
 const canvas = document.querySelector<HTMLCanvasElement>('#c')!;
 const scene = new THREE.Scene();
@@ -42,8 +42,6 @@ camera_1.position.set(0, 0, 5);
 camera_1.lookAt(0, 0, 0);
 camera_2.position.set(0, 0, -5);
 camera_2.lookAt(0, 0, 0);
-
-// camera_1.add(camera_2);
 
 const controls = new TrackballControls(camera_1, renderer.domElement);
 controls.dynamicDampingFactor = .9;
@@ -88,6 +86,35 @@ let sounds_acid_left: GainNode[] = [];
 let sounds_acid_right: GainNode[] = [];
 let sounds_chords_left: GainNode[] = [];
 let sounds_chords_right: GainNode[] = [];
+
+class FreqSound {
+  gain_node: GainNode;
+  oscillator_node: OscillatorNode;
+
+  constructor(ear: StereoPannerNode) {
+    const oscillator_node = ear.context.createOscillator();
+    oscillator_node.start();
+
+    const gain_node = ear.context.createGain();
+    gain_node.gain.value = 0.0;
+    oscillator_node.connect(gain_node).connect(ear);
+
+    this.gain_node = gain_node;
+    this.oscillator_node = oscillator_node;
+  }
+
+  setValue(value: number) {
+    this.oscillator_node.frequency.value = Math.pow(2, value) * 440;
+  }
+
+  setActive(val: boolean) {
+    this.gain_node.gain.value = val ? .7 : 0;
+  }
+}
+
+let sound_wave_left: FreqSound;
+let sound_wave_right: FreqSound;
+
 async function init_audio() {
   const audio_acid_buffers = await Promise.all(audio_acid_promises);
   const audio_chords_buffers = await Promise.all(audio_chords_promises);
@@ -117,6 +144,9 @@ async function init_audio() {
   const right_ear = audio_ctx.createStereoPanner();
   right_ear.pan.value = 1;
   right_ear.connect(audio_ctx.destination);
+
+  sound_wave_left = new FreqSound(left_ear);
+  sound_wave_right = new FreqSound(right_ear);
 
   sounds_acid_left = audio_acid_sources.map(source => {
     const gain_node = audio_ctx.createGain();
@@ -247,31 +277,43 @@ function every_frame(cur_time: number) {
 
   sounds_acid_left.forEach(x => x.gain.value = 0);
   sounds_chords_left.forEach(x => x.gain.value = 0);
-  let cur_sounds_left = CONFIG.music_1 === "chords" ? sounds_chords_left : sounds_acid_left;
-  if (cur_sounds_left.length > 0) {
-    let sound_index = v1_left * (cur_sounds_left.length - 1);
-    let sound_frac = sound_index % 1;
-    if (!CONFIG.fade_between_loops || Math.ceil(sound_index) === Math.floor(sound_index)) {
-      // edge case - no fade
-      cur_sounds_left[Math.floor(sound_index)].gain.value = 1;
-    } else {
-      cur_sounds_left[Math.ceil(sound_index)].gain.value = sound_frac;
-      cur_sounds_left[Math.floor(sound_index)].gain.value = 1 - sound_frac;
+  if (CONFIG.music_1 === "wave") {
+    sound_wave_left.setActive(true);
+    sound_wave_left.setValue(v1_left);
+  } else {
+    sound_wave_left.setActive(false);
+    let cur_sounds_left = CONFIG.music_1 === "chords" ? sounds_chords_left : sounds_acid_left;
+    if (cur_sounds_left.length > 0) {
+      let sound_index = v1_left * (cur_sounds_left.length - 1);
+      let sound_frac = sound_index % 1;
+      if (!CONFIG.fade_between_loops || Math.ceil(sound_index) === Math.floor(sound_index)) {
+        // edge case - no fade
+        cur_sounds_left[Math.floor(sound_index)].gain.value = 1;
+      } else {
+        cur_sounds_left[Math.ceil(sound_index)].gain.value = sound_frac;
+        cur_sounds_left[Math.floor(sound_index)].gain.value = 1 - sound_frac;
+      }
     }
   }
 
   sounds_acid_right.forEach(x => x.gain.value = 0);
   sounds_chords_right.forEach(x => x.gain.value = 0);
-  let cur_sounds_right = CONFIG.music_1 === "chords" ? sounds_chords_right : sounds_acid_right;
-  if (cur_sounds_right.length > 0) {
-    let sound_index = v1_right * (cur_sounds_right.length - 1);
-    let sound_frac = sound_index % 1;
-    if (!CONFIG.fade_between_loops || Math.ceil(sound_index) === Math.floor(sound_index)) {
-      // edge case - no fade
-      cur_sounds_right[Math.floor(sound_index)].gain.value = 1;
-    } else {
-      cur_sounds_right[Math.ceil(sound_index)].gain.value = sound_frac;
-      cur_sounds_right[Math.floor(sound_index)].gain.value = 1 - sound_frac;
+  if (CONFIG.music_1 === "wave") {
+    sound_wave_right.setActive(true);
+    sound_wave_right.setValue(v1_right);
+  } else {
+    sound_wave_right.setActive(false);
+    let cur_sounds_right = CONFIG.music_1 === "chords" ? sounds_chords_right : sounds_acid_right;
+    if (cur_sounds_right.length > 0) {
+      let sound_index = v1_right * (cur_sounds_right.length - 1);
+      let sound_frac = sound_index % 1;
+      if (!CONFIG.fade_between_loops || Math.ceil(sound_index) === Math.floor(sound_index)) {
+        // edge case - no fade
+        cur_sounds_right[Math.floor(sound_index)].gain.value = 1;
+      } else {
+        cur_sounds_right[Math.ceil(sound_index)].gain.value = sound_frac;
+        cur_sounds_right[Math.floor(sound_index)].gain.value = 1 - sound_frac;
+      }
     }
   }
 
