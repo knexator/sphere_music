@@ -223,6 +223,7 @@ let input_state = {
   cw: false,
   ccw: false,
   precision: false,
+  action_just_pressed: false,
 };
 
 const input_to_keycode = {
@@ -233,6 +234,7 @@ const input_to_keycode = {
   left: "KeyE",
   right: "KeyQ",
   precision: "ShiftLeft ShiftRight".split(' '),
+  action_just_pressed: "Space",
 };
 
 document.addEventListener("keydown", ev => {
@@ -254,8 +256,18 @@ document.addEventListener("keyup", ev => {
 });
 
 // temp, to be changed by sounds
-let variable_left_element = document.querySelector<HTMLDivElement>("#variable_1_left")!
-let variable_right_element = document.querySelector<HTMLDivElement>("#variable_1_right")!
+// let variable_1_left_element = document.querySelector<HTMLDivElement>("#variable_1_left")!
+// let variable_1_right_element = document.querySelector<HTMLDivElement>("#variable_1_right")!
+let variable_2_left_element = document.querySelector<HTMLDivElement>("#variable_2_left")!
+let variable_2_right_element = document.querySelector<HTMLDivElement>("#variable_2_right")!
+
+function variable_1(pos: THREE.Vector3): number {
+  return noise(pos.x + .2, pos.y + .3, pos.z + .4);
+}
+
+function variable_2(pos: THREE.Vector3): number {
+  return noise(pos.z + .1, pos.y + .8, pos.x + .3);
+}
 
 let last_time = 0;
 function every_frame(cur_time: number) {
@@ -270,11 +282,12 @@ function every_frame(cur_time: number) {
     Number(input_state.up) - Number(input_state.down),
   );
 
+  let rot = Number(input_state.ccw) - Number(input_state.cw);
   if (input_state.precision) {
+    rot *= .2;
     movement_vector.multiplyScalar(.1);
   }
 
-  let rot = Number(input_state.ccw) - Number(input_state.cw);
   players.rotateZ(rot * 4 * delta_time);
   players.rotateY(- movement_vector.x * delta_time);
   players.rotateX(- movement_vector.y * delta_time);
@@ -282,11 +295,17 @@ function every_frame(cur_time: number) {
   players.children[0].getWorldPosition(pos_left);
   players.children[1].getWorldPosition(pos_right);
 
-  let v1_left = noise(pos_left.x, pos_left.y, pos_left.z);
-  let v2_left = noise(pos_left.y, pos_left.z, pos_left.x);
+  if (input_state.action_just_pressed) {
+    input_state.action_just_pressed = false;
+    const cur_markers = players.clone();
+    cur_markers.children.forEach(x => x.scale.multiplyScalar(.5));
+    scene.add(cur_markers);
+  }
 
-  let v1_right = noise(pos_right.x + .3, pos_right.z + .1, pos_right.y + .8);
-  let v2_right = noise(pos_right.z + .1, pos_right.y + .8, pos_right.x + .3);
+  let v1_left = variable_1(pos_left);
+  let v2_left = variable_2(pos_left);
+  let v1_right = variable_1(pos_right);
+  let v2_right = variable_2(pos_right);
 
   // cheating until we get a better mapping
   v1_left = clamp(remap(v1_left, .25, .75, 0, 1), 0, 1);
@@ -390,8 +409,10 @@ function every_frame(cur_time: number) {
   let col_v2_right = new THREE.Color();
   col_v2_right.setHSL(v2_right, 1, .5);
 
-  variable_left_element.style.backgroundColor = "#" + col_v2_left.getHexString();
-  variable_right_element.style.backgroundColor = "#" + col_v2_right.getHexString();
+  variable_2_left_element.innerText = v2_left.toFixed(4);
+  variable_2_right_element.innerText = v2_right.toFixed(4);
+  variable_2_left_element.style.backgroundColor = "#" + col_v2_left.getHexString();
+  variable_2_right_element.style.backgroundColor = "#" + col_v2_right.getHexString();
 
   if (resizeRendererToDisplaySize(renderer)) {
     const canvas = renderer.domElement;
