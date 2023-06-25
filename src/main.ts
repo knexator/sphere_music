@@ -25,7 +25,7 @@ THREE.DefaultLoadingManager.onLoad = () => {
 const gui = new GUI();
 const CONFIG = {
   music_1: "chords",
-  fade_between_loops: true,
+  fade_between_loops: false,
 }
 gui.add(CONFIG, 'fade_between_loops');
 gui.add(CONFIG, 'music_1', ["chords", "acid"]);
@@ -84,52 +84,74 @@ const audioLoader = new THREE.AudioLoader();
 let audio_acid_promises = music_acid_urls.map(url => audioLoader.loadAsync(url));
 let audio_chords_promises = music_chords_urls.map(url => audioLoader.loadAsync(url));
 
-let sound_acid_left: THREE.Audio<GainNode>[];
-let sound_chords_left: THREE.Audio<GainNode>[];
+let sounds_acid_left: GainNode[] = [];
+let sounds_acid_right: GainNode[] = [];
+let sounds_chords_left: GainNode[] = [];
+let sounds_chords_right: GainNode[] = [];
 async function init_audio() {
   const audio_acid_buffers = await Promise.all(audio_acid_promises);
   const audio_chords_buffers = await Promise.all(audio_chords_promises);
 
-  // const audio_ctx = new AudioContext();
-  // const source = audio_ctx.createBufferSource();
-  // source.buffer = audio_buffers[0];
-  // source.loop = true;
-  // source.start();
-  // source.connect(audio_ctx.destination);
+  const audio_ctx = new AudioContext();
 
-  // create an AudioListener and add it to the camera
-  const listener = new THREE.AudioListener();
-  camera_1.add(listener);
-
-  // todo: different ears
-  // const pannerOptions = { pan: -1 };
-  // const panner = new StereoPannerNode(listener.context, pannerOptions);
-  // listener.setFilter(panner);
-
-  sound_acid_left = audio_acid_buffers.map(buffer => {
-    const sound_object = new THREE.Audio(listener);
-    sound_object.setBuffer(buffer);
-    sound_object.setLoop(true);
-    sound_object.setVolume(0.0);
-    sound_object.play();
-    return sound_object;
+  const audio_acid_sources = audio_acid_buffers.map(buffer => {
+    const source = audio_ctx.createBufferSource();
+    source.buffer = buffer;
+    source.loop = true;
+    source.start();
+    return source;
   });
 
-  sound_chords_left = audio_chords_buffers.map(buffer => {
-    const sound_object = new THREE.Audio(listener);
-    sound_object.setBuffer(buffer);
-    sound_object.setLoop(true);
-    sound_object.setVolume(0.0);
-    sound_object.play();
-    return sound_object;
-  });
+  const audio_chords_sources = audio_chords_buffers.map(buffer => {
+    const source = audio_ctx.createBufferSource();
+    source.buffer = buffer;
+    source.loop = true;
+    source.start();
+    return source;
+  })
+
+  const left_ear = audio_ctx.createStereoPanner();
+  left_ear.pan.value = -1;
+  left_ear.connect(audio_ctx.destination);
+
+  const right_ear = audio_ctx.createStereoPanner();
+  right_ear.pan.value = 1;
+  right_ear.connect(audio_ctx.destination);
+
+  sounds_acid_left = audio_acid_sources.map(source => {
+    const gain_node = audio_ctx.createGain();
+    gain_node.gain.value = 0.0;
+    source.connect(gain_node).connect(left_ear);
+    return gain_node;
+  })
+
+  sounds_acid_right = audio_acid_sources.map(source => {
+    const gain_node = audio_ctx.createGain();
+    gain_node.gain.value = 0.0;
+    source.connect(gain_node).connect(right_ear);
+    return gain_node;
+  })
+
+  sounds_chords_left = audio_chords_sources.map(source => {
+    const gain_node = audio_ctx.createGain();
+    gain_node.gain.value = 0.0;
+    source.connect(gain_node).connect(left_ear);
+    return gain_node;
+  })
+
+  sounds_chords_right = audio_chords_sources.map(source => {
+    const gain_node = audio_ctx.createGain();
+    gain_node.gain.value = 0.0;
+    source.connect(gain_node).connect(right_ear);
+    return gain_node;
+  })
 
   loading_div.style.display = "none";
   requestAnimationFrame(every_frame);
 }
 
-let pos_1 = new THREE.Vector3();
-let pos_2 = new THREE.Vector3();
+let pos_left = new THREE.Vector3();
+let pos_right = new THREE.Vector3();
 const players = new THREE.Object3D();
 scene.add(players);
 {
@@ -210,46 +232,62 @@ function every_frame(cur_time: number) {
   players.rotateY(- movement_vector.x * delta_time);
   players.rotateX(- movement_vector.y * delta_time);
 
-  players.children[0].getWorldPosition(pos_1);
-  players.children[1].getWorldPosition(pos_2);
+  players.children[0].getWorldPosition(pos_left);
+  players.children[1].getWorldPosition(pos_right);
 
-  let v1_1 = noise(pos_1.x, pos_1.y, pos_1.z);
-  let v1_2 = noise(pos_2.x + .3, pos_2.z + .1, pos_2.y + .8);
+  let v1_left = noise(pos_left.x, pos_left.y, pos_left.z);
+  let v2_left = noise(pos_left.y, pos_left.z, pos_left.x);
+
+  let v1_right = noise(pos_right.x + .3, pos_right.z + .1, pos_right.y + .8);
+  let v2_right = noise(pos_right.z + .1, pos_right.y + .8, pos_right.x + .3);
 
   // cheating until we get a better mapping
-  v1_1 = clamp(remap(v1_1, .25, .75, 0, 1), 0, 1);
+  v1_left = clamp(remap(v1_left, .25, .75, 0, 1), 0, 1);
+  v2_left = clamp(remap(v2_left, .25, .75, 0, 1), 0, 1);
 
-  let v2_1 = noise(pos_1.y, pos_1.z, pos_1.x);
-  let v2_2 = noise(pos_2.z + .1, pos_2.y + .8, pos_2.x + .3);
+  sounds_acid_left.forEach(x => x.gain.value = 0);
+  sounds_chords_left.forEach(x => x.gain.value = 0);
+  let cur_sounds_left = CONFIG.music_1 === "chords" ? sounds_chords_left : sounds_acid_left;
+  if (cur_sounds_left.length > 0) {
+    let sound_index = v1_left * (cur_sounds_left.length - 1);
+    let sound_frac = sound_index % 1;
+    if (!CONFIG.fade_between_loops || Math.ceil(sound_index) === Math.floor(sound_index)) {
+      // edge case - no fade
+      cur_sounds_left[Math.floor(sound_index)].gain.value = 1;
+    } else {
+      cur_sounds_left[Math.ceil(sound_index)].gain.value = sound_frac;
+      cur_sounds_left[Math.floor(sound_index)].gain.value = 1 - sound_frac;
+    }
+  }
 
-
-  sound_acid_left.forEach(x => x.setVolume(0));
-  sound_chords_left.forEach(x => x.setVolume(0));
-  let cur_sounds = CONFIG.music_1 === "chords" ? sound_chords_left : sound_acid_left;
-
-  let sound_index = v1_1 * (cur_sounds.length - 1);
-  let sound_frac = sound_index % 1;
-  if (!CONFIG.fade_between_loops || Math.ceil(sound_index) === Math.floor(sound_index)) {
-    // edge case - no fade
-    cur_sounds[Math.floor(sound_index)].setVolume(1);
-  } else {
-    cur_sounds[Math.ceil(sound_index)].setVolume(sound_frac);
-    cur_sounds[Math.floor(sound_index)].setVolume(1 - sound_frac);
+  sounds_acid_right.forEach(x => x.gain.value = 0);
+  sounds_chords_right.forEach(x => x.gain.value = 0);
+  let cur_sounds_right = CONFIG.music_1 === "chords" ? sounds_chords_right : sounds_acid_right;
+  if (cur_sounds_right.length > 0) {
+    let sound_index = v1_right * (cur_sounds_right.length - 1);
+    let sound_frac = sound_index % 1;
+    if (!CONFIG.fade_between_loops || Math.ceil(sound_index) === Math.floor(sound_index)) {
+      // edge case - no fade
+      cur_sounds_right[Math.floor(sound_index)].gain.value = 1;
+    } else {
+      cur_sounds_right[Math.ceil(sound_index)].gain.value = sound_frac;
+      cur_sounds_right[Math.floor(sound_index)].gain.value = 1 - sound_frac;
+    }
   }
 
   // temp, to be changed to sounds
-  let col1_1 = new THREE.Color();
-  col1_1.setHSL(v1_1, 1, .5);
-  let col1_2 = new THREE.Color();
-  col1_2.setHSL(v1_2, 1, .5);
+  let col_v1_left = new THREE.Color();
+  col_v1_left.setHSL(v1_left, 1, .5);
+  let col_v1_right = new THREE.Color();
+  col_v1_right.setHSL(v1_right, 1, .5);
 
-  let col2_1 = new THREE.Color();
-  col2_1.setHSL(v2_1, 1, .5);
-  let col2_2 = new THREE.Color();
-  col2_2.setHSL(v2_2, 1, .5);
+  let col_v2_left = new THREE.Color();
+  col_v2_left.setHSL(v2_left, 1, .5);
+  let col_v2_right = new THREE.Color();
+  col_v2_right.setHSL(v2_right, 1, .5);
 
-  variable_left_element.style.backgroundColor = "#" + col2_1.getHexString();
-  variable_right_element.style.backgroundColor = "#" + col2_2.getHexString();
+  variable_left_element.style.backgroundColor = "#" + col_v2_left.getHexString();
+  variable_right_element.style.backgroundColor = "#" + col_v2_right.getHexString();
 
   if (resizeRendererToDisplaySize(renderer)) {
     const canvas = renderer.domElement;
@@ -259,17 +297,18 @@ function every_frame(cur_time: number) {
     camera_2.updateProjectionMatrix();
   }
 
-  renderer.setClearColor(col1_1);
+  renderer.setClearColor(col_v1_left);
   renderer.setViewport(0, 0, canvas.clientWidth / 2, canvas.clientHeight);
   renderer.setScissor(0, 0, canvas.clientWidth / 2, canvas.clientHeight);
   renderer.setScissorTest(true);
   renderer.render(scene, camera_1);
 
+  camera_2.rotation.copy(camera_1.rotation)
   camera_2.position.copy(camera_1.position);
   camera_2.position.multiplyScalar(-1);
-  camera_2.lookAt(0, 0, 0);
+  camera_2.rotateY(Math.PI);
 
-  renderer.setClearColor(col1_2);
+  renderer.setClearColor(col_v1_right);
   renderer.setViewport(canvas.clientWidth / 2, 0, canvas.clientWidth / 2, canvas.clientHeight);
   renderer.setScissor(canvas.clientWidth / 2, 0, canvas.clientWidth / 2, canvas.clientHeight);
   renderer.setScissorTest(true);
