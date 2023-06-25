@@ -222,6 +222,7 @@ let input_state = {
   down: false,
   cw: false,
   ccw: false,
+  precision: false,
 };
 
 const input_to_keycode = {
@@ -231,6 +232,7 @@ const input_to_keycode = {
   down: "KeyS ArrowDown".split(' '),
   left: "KeyE",
   right: "KeyQ",
+  precision: "ShiftLeft ShiftRight".split(' '),
 };
 
 document.addEventListener("keydown", ev => {
@@ -267,6 +269,10 @@ function every_frame(cur_time: number) {
     Number(input_state.right) - Number(input_state.left),
     Number(input_state.up) - Number(input_state.down),
   );
+
+  if (input_state.precision) {
+    movement_vector.multiplyScalar(.1);
+  }
 
   let rot = Number(input_state.ccw) - Number(input_state.cw);
   players.rotateZ(rot * 4 * delta_time);
