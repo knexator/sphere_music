@@ -3,7 +3,6 @@ import GUI from 'lil-gui';
 // import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { TrackballControls } from 'three/addons/controls/TrackballControls.js';
 import { inverseLerp, lerp } from 'three/src/math/MathUtils.js';
-import { noise } from '@chriscourses/perlin-noise';
 
 let music_acid_urls = fromCount(8, k => {
   return new URL(`./music_acid/${k + 1}.mp3`, import.meta.url).href
@@ -44,11 +43,6 @@ function variables(pos: THREE.Vector3): [number, number] {
   // return noise(pos.x + .2, pos.y + .3, pos.z + .4);
   return [r, g];
 }
-
-function variable_2(pos: THREE.Vector3): number {
-  return noise(pos.z + .1, pos.y + .8, pos.x + .3);
-}
-
 
 THREE.DefaultLoadingManager.onLoad = () => {
   window.addEventListener("pointerdown", _ => {
@@ -525,11 +519,11 @@ function resizeRendererToDisplaySize(renderer: THREE.WebGLRenderer) {
   return needResize;
 }
 
-function clamp(value: number, a: number, b: number) {
-  if (value < a) return a;
-  if (value > b) return b;
-  return value;
-}
+// function clamp(value: number, a: number, b: number) {
+//   if (value < a) return a;
+//   if (value > b) return b;
+//   return value;
+// }
 
 function remap(value: number, src_min: number, src_max: number, dst_min: number, dst_max: number): number {
   let t = inverseLerp(src_min, src_max, value);
