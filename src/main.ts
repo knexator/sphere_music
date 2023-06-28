@@ -13,6 +13,10 @@ let music_chords_urls = fromCount(8, k => {
   return new URL(`./music_chords/${k + 1}.mp3`, import.meta.url).href
 })
 
+let music_new_urls = fromCount(5, k => {
+  return new URL(`./music_new/${k + 1}.mp3`, import.meta.url).href
+})
+
 const loading_div = document.querySelector<HTMLDivElement>("#loading")!;
 
 THREE.DefaultLoadingManager.onLoad = () => {
@@ -24,20 +28,21 @@ THREE.DefaultLoadingManager.onLoad = () => {
 
 const gui = new GUI();
 const CONFIG = {
-  music_1: "chords",
+  music_1: "new",
   music_2: "none",
   fade_between_loops: false,
 }
 gui.add(CONFIG, 'fade_between_loops');
-gui.add(CONFIG, 'music_1', ["chords", "acid", "wave"]);
-gui.add(CONFIG, 'music_2', ["none", "chords", "acid", "wave"]);
+gui.add(CONFIG, 'music_1', ["chords", "acid", "wave", "new"]);
+gui.add(CONFIG, 'music_2', ["none", "chords", "acid", "wave", "new"]);
 
 const canvas = document.querySelector<HTMLCanvasElement>('#c')!;
 const scene = new THREE.Scene();
 const renderer = new THREE.WebGLRenderer({ antialias: true, canvas: canvas });
 // renderer.shadowMap.enabled = true;
 
-const camera_1 = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
+// const camera_1 = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
+const camera_1 = new THREE.OrthographicCamera();
 const camera_2 = camera_1.clone();
 
 camera_1.position.set(0, 0, 5);
@@ -83,7 +88,10 @@ controls.noPan = true;
 const audioLoader = new THREE.AudioLoader();
 let audio_acid_promises = music_acid_urls.map(url => audioLoader.loadAsync(url));
 let audio_chords_promises = music_chords_urls.map(url => audioLoader.loadAsync(url));
+let audio_new_promises = music_new_urls.map(url => audioLoader.loadAsync(url));
 
+let sounds_new_left: GainNode[] = [];
+let sounds_new_right: GainNode[] = [];
 let sounds_acid_left: GainNode[] = [];
 let sounds_acid_right: GainNode[] = [];
 let sounds_chords_left: GainNode[] = [];
@@ -125,6 +133,7 @@ let sound_wave_2_right: FreqSound;
 async function init_audio() {
   const audio_acid_buffers = await Promise.all(audio_acid_promises);
   const audio_chords_buffers = await Promise.all(audio_chords_promises);
+  const audio_new_buffers = await Promise.all(audio_new_promises);
 
   const audio_ctx = new AudioContext();
 
@@ -137,6 +146,14 @@ async function init_audio() {
   });
 
   const audio_chords_sources = audio_chords_buffers.map(buffer => {
+    const source = audio_ctx.createBufferSource();
+    source.buffer = buffer;
+    source.loop = true;
+    source.start();
+    return source;
+  })
+
+  const audio_new_sources = audio_new_buffers.map(buffer => {
     const source = audio_ctx.createBufferSource();
     source.buffer = buffer;
     source.loop = true;
@@ -187,6 +204,20 @@ async function init_audio() {
     return gain_node;
   })
 
+  sounds_new_left = audio_new_sources.map(source => {
+    const gain_node = audio_ctx.createGain();
+    gain_node.gain.value = 0.0;
+    source.connect(gain_node).connect(left_ear);
+    return gain_node;
+  })
+
+  sounds_new_right = audio_new_sources.map(source => {
+    const gain_node = audio_ctx.createGain();
+    gain_node.gain.value = 0.0;
+    source.connect(gain_node).connect(right_ear);
+    return gain_node;
+  })
+
   loading_div.style.display = "none";
   requestAnimationFrame(every_frame);
 }
@@ -214,6 +245,8 @@ scene.add(players);
 
   players.add(player_1, player_2);
 }
+
+// players.add(camera_1);
 
 let input_state = {
   left: false,
@@ -269,6 +302,9 @@ function variable_2(pos: THREE.Vector3): number {
   return noise(pos.z + .1, pos.y + .8, pos.x + .3);
 }
 
+let last_sign_1: number | null = null;
+let last_sign_2: number | null = null;
+
 let last_time = 0;
 function every_frame(cur_time: number) {
   // @ts-ignore
@@ -295,13 +331,6 @@ function every_frame(cur_time: number) {
   players.children[0].getWorldPosition(pos_left);
   players.children[1].getWorldPosition(pos_right);
 
-  if (input_state.action_just_pressed) {
-    input_state.action_just_pressed = false;
-    const cur_markers = players.clone();
-    cur_markers.children.forEach(x => x.scale.multiplyScalar(.5));
-    scene.add(cur_markers);
-  }
-
   let v1_left = variable_1(pos_left);
   let v2_left = variable_2(pos_left);
   let v1_right = variable_1(pos_right);
@@ -313,15 +342,35 @@ function every_frame(cur_time: number) {
   v1_right = clamp(remap(v1_right, .25, .75, 0, 1), 0, 1);
   v2_right = clamp(remap(v2_right, .25, .75, 0, 1), 0, 1);
 
+  let cur_sign_1 = Math.sign(v1_left - v1_right);
+  let cur_sign_2 = Math.sign(v2_left - v2_right);
+  if (last_sign_1 !== null && last_sign_1 !== cur_sign_1) {
+    input_state.action_just_pressed = true;
+  }
+  if (last_sign_2 !== null && last_sign_2 !== cur_sign_2) {
+    // input_state.action_just_pressed = true;
+  }
+  last_sign_1 = cur_sign_1;
+  last_sign_2 = cur_sign_2;
 
+  if (input_state.action_just_pressed) {
+    input_state.action_just_pressed = false;
+    const cur_markers = players.clone();
+    cur_markers.children.forEach(x => x.scale.multiplyScalar(.5));
+    scene.add(cur_markers);
+  }
+
+  const sounds_left = { "chords": sounds_chords_left, "acid": sounds_acid_left, "new": sounds_new_left };
   sounds_acid_left.forEach(x => x.gain.value = 0);
   sounds_chords_left.forEach(x => x.gain.value = 0);
+  sounds_new_left.forEach(x => x.gain.value = 0);
   if (CONFIG.music_1 === "wave") {
     sound_wave_1_left.setActive(true);
     sound_wave_1_left.setValue(v1_left);
   } else {
     sound_wave_1_left.setActive(false);
-    let cur_sounds_left = CONFIG.music_1 === "chords" ? sounds_chords_left : sounds_acid_left;
+    // @ts-ignore
+    let cur_sounds_left = sounds_left[CONFIG.music_1];
     if (cur_sounds_left.length > 0) {
       let sound_index = v1_left * (cur_sounds_left.length - 1);
       let sound_frac = sound_index % 1;
@@ -341,7 +390,8 @@ function every_frame(cur_time: number) {
   } else {
     sound_wave_2_left.setActive(false);
     if (CONFIG.music_2 !== "none" && CONFIG.music_2 !== CONFIG.music_1) {
-      let cur_sounds_2_left = CONFIG.music_2 === "chords" ? sounds_chords_left : sounds_acid_left;
+      // @ts-ignore
+      let cur_sounds_2_left = sounds_left[CONFIG.music_2];
       if (cur_sounds_2_left.length > 0) {
         let sound_index = v2_left * (cur_sounds_2_left.length - 1);
         let sound_frac = sound_index % 1;
@@ -356,14 +406,17 @@ function every_frame(cur_time: number) {
     }
   }
 
+  const sounds_right = { "chords": sounds_chords_right, "acid": sounds_acid_right, "new": sounds_new_right };
   sounds_acid_right.forEach(x => x.gain.value = 0);
   sounds_chords_right.forEach(x => x.gain.value = 0);
+  sounds_new_right.forEach(x => x.gain.value = 0);
   if (CONFIG.music_1 === "wave") {
     sound_wave_1_right.setActive(true);
     sound_wave_1_right.setValue(v1_right);
   } else {
     sound_wave_1_right.setActive(false);
-    let cur_sounds_right = CONFIG.music_1 === "chords" ? sounds_chords_right : sounds_acid_right;
+    // @ts-ignore
+    let cur_sounds_right = sounds_right[CONFIG.music_1];
     if (cur_sounds_right.length > 0) {
       let sound_index = v1_right * (cur_sounds_right.length - 1);
       let sound_frac = sound_index % 1;
@@ -383,7 +436,8 @@ function every_frame(cur_time: number) {
   } else {
     sound_wave_2_right.setActive(false);
     if (CONFIG.music_2 !== "none" && CONFIG.music_2 !== CONFIG.music_1) {
-      let cur_sounds_2_right = CONFIG.music_2 === "chords" ? sounds_chords_right : sounds_acid_right;
+      // @ts-ignore
+      let cur_sounds_2_right = sounds_right[CONFIG.music_2];
       if (cur_sounds_2_right.length > 0) {
         let sound_index = v2_right * (cur_sounds_2_right.length - 1);
         let sound_frac = sound_index % 1;
@@ -415,11 +469,11 @@ function every_frame(cur_time: number) {
   variable_2_right_element.style.backgroundColor = "#" + col_v2_right.getHexString();
 
   if (resizeRendererToDisplaySize(renderer)) {
-    const canvas = renderer.domElement;
-    camera_1.aspect = .5 * canvas.clientWidth / canvas.clientHeight;
-    camera_1.updateProjectionMatrix();
-    camera_2.aspect = .5 * canvas.clientWidth / canvas.clientHeight;
-    camera_2.updateProjectionMatrix();
+    // const canvas = renderer.domElement;
+    // camera_1.aspect = .5 * canvas.clientWidth / canvas.clientHeight;
+    // camera_1.updateProjectionMatrix();
+    // camera_2.aspect = .5 * canvas.clientWidth / canvas.clientHeight;
+    // camera_2.updateProjectionMatrix();
   }
 
   renderer.setClearColor(col_v1_left);
