@@ -19,6 +19,37 @@ let music_new_urls = fromCount(5, k => {
 
 const loading_div = document.querySelector<HTMLDivElement>("#loading")!;
 
+let helper_canvas = document.createElement('canvas');
+let helper_ctx = helper_canvas.getContext("2d")!;
+
+const noise_img = document.querySelector<HTMLImageElement>("#noise_img")!;
+helper_canvas.width = noise_img.width;
+helper_canvas.height = noise_img.height;
+helper_ctx.drawImage(noise_img, 0, 0);
+var noise_data = helper_ctx.getImageData(0, 0, noise_img.width, noise_img.height);
+
+function variables(pos: THREE.Vector3): [number, number] {
+  let ang_x = Math.atan2(pos.z, pos.x);
+  let ang_y = Math.atan2(pos.y, Math.sqrt(pos.x * pos.x + pos.z * pos.z));
+  let u = remap(ang_x, -Math.PI, Math.PI, 0, 1);
+  let v = remap(ang_y, -Math.PI / 2, Math.PI / 2, 0, 1);
+
+  var tx = Math.min(u * noise_data.width | 0, noise_data.width - 1);
+  var ty = Math.min(v * noise_data.height | 0, noise_data.height - 1);
+  var offset = (ty * noise_data.width + tx) * 4;
+  var r = noise_data.data[offset + 0] / 255;
+  var g = noise_data.data[offset + 1] / 255;
+  // var b = noise_data.data[offset + 2];
+  // var a = noise_data.data[offset + 3];
+  // return noise(pos.x + .2, pos.y + .3, pos.z + .4);
+  return [r, g];
+}
+
+function variable_2(pos: THREE.Vector3): number {
+  return noise(pos.z + .1, pos.y + .8, pos.x + .3);
+}
+
+
 THREE.DefaultLoadingManager.onLoad = () => {
   window.addEventListener("pointerdown", _ => {
     init_audio();
@@ -294,14 +325,6 @@ document.addEventListener("keyup", ev => {
 let variable_2_left_element = document.querySelector<HTMLDivElement>("#variable_2_left")!
 let variable_2_right_element = document.querySelector<HTMLDivElement>("#variable_2_right")!
 
-function variable_1(pos: THREE.Vector3): number {
-  return noise(pos.x + .2, pos.y + .3, pos.z + .4);
-}
-
-function variable_2(pos: THREE.Vector3): number {
-  return noise(pos.z + .1, pos.y + .8, pos.x + .3);
-}
-
 let last_sign_1: number | null = null;
 let last_sign_2: number | null = null;
 
@@ -331,16 +354,8 @@ function every_frame(cur_time: number) {
   players.children[0].getWorldPosition(pos_left);
   players.children[1].getWorldPosition(pos_right);
 
-  let v1_left = variable_1(pos_left);
-  let v2_left = variable_2(pos_left);
-  let v1_right = variable_1(pos_right);
-  let v2_right = variable_2(pos_right);
-
-  // cheating until we get a better mapping
-  v1_left = clamp(remap(v1_left, .25, .75, 0, 1), 0, 1);
-  v2_left = clamp(remap(v2_left, .25, .75, 0, 1), 0, 1);
-  v1_right = clamp(remap(v1_right, .25, .75, 0, 1), 0, 1);
-  v2_right = clamp(remap(v2_right, .25, .75, 0, 1), 0, 1);
+  let [v1_left, v2_left] = variables(pos_left);
+  let [v1_right, v2_right] = variables(pos_right);
 
   let cur_sign_1 = Math.sign(v1_left - v1_right);
   let cur_sign_2 = Math.sign(v2_left - v2_right);
@@ -348,7 +363,7 @@ function every_frame(cur_time: number) {
     input_state.action_just_pressed = true;
   }
   if (last_sign_2 !== null && last_sign_2 !== cur_sign_2) {
-    // input_state.action_just_pressed = true;
+    input_state.action_just_pressed = true;
   }
   last_sign_1 = cur_sign_1;
   last_sign_2 = cur_sign_2;
