@@ -4,17 +4,15 @@ import GUI from 'lil-gui';
 import { TrackballControls } from 'three/addons/controls/TrackballControls.js';
 import { inverseLerp, lerp } from 'three/src/math/MathUtils.js';
 
-let music_acid_urls = fromCount(8, k => {
-  return new URL(`./music_acid/${k + 1}.mp3`, import.meta.url).href
-})
+const sound_counts = {
+  acid: 8,
+  chords: 8,
+  new: 8,
+};
 
-let music_chords_urls = fromCount(8, k => {
-  return new URL(`./music_chords/${k + 1}.mp3`, import.meta.url).href
-})
-
-let music_new_urls = fromCount(5, k => {
-  return new URL(`./music_new/${k + 1}.mp3`, import.meta.url).href
-})
+const sound_urls = objectMap(sound_counts, (count, key) => fromCount(count, k => {
+  return new URL(`./music_${key}/${k + 1}.mp3`, import.meta.url).href
+}));
 
 const loading_div = document.querySelector<HTMLDivElement>("#loading")!;
 
@@ -111,9 +109,7 @@ controls.noPan = true;
 
 // load a sound and set it as the Audio object's buffer
 const audioLoader = new THREE.AudioLoader();
-let audio_acid_promises = music_acid_urls.map(url => audioLoader.loadAsync(url));
-let audio_chords_promises = music_chords_urls.map(url => audioLoader.loadAsync(url));
-let audio_new_promises = music_new_urls.map(url => audioLoader.loadAsync(url));
+const audio_promises = objectMap(sound_urls, (urls, _key) => urls.map(url => audioLoader.loadAsync(url)));
 
 let sounds_new_left: GainNode[] = [];
 let sounds_new_right: GainNode[] = [];
@@ -156,12 +152,22 @@ let sound_wave_2_left: FreqSound;
 let sound_wave_2_right: FreqSound;
 
 async function init_audio() {
-  const audio_acid_buffers = await Promise.all(audio_acid_promises);
-  const audio_chords_buffers = await Promise.all(audio_chords_promises);
-  const audio_new_buffers = await Promise.all(audio_new_promises);
+  const audio_buffers: Record<string, AudioBuffer[]> = {};
+  for (const [key, value] of Object.entries(audio_promises)) {
+    audio_buffers[key] = await Promise.all(value);
+  }
 
   const audio_ctx = new AudioContext();
 
+  const audio_sources = objectMap(audio_buffers, (buffers, _key) => buffers.map(buffer => {
+    const source = audio_ctx.createBufferSource();
+    source.buffer = buffer;
+    source.loop = true;
+    source.start();
+    return source;
+  }));
+
+  // todo
   const audio_acid_sources = audio_acid_buffers.map(buffer => {
     const source = audio_ctx.createBufferSource();
     source.buffer = buffer;
@@ -536,4 +542,13 @@ export function fromCount<T>(n: number, callback: (index: number) => T): T[] {
     result[k] = callback(k);
   }
   return result;
+}
+
+// returns a new object with the values at each key mapped using mapFn(value)
+function objectMap<T, S>(object: Record<string, T>, mapFn: (val: T, key: string) => S): Record<string, S> {
+  return Object.keys(object).reduce(function(result, key) {
+    // @ts-ignore
+    result[key] = mapFn(object[key], key)
+    return result
+  }, {})
 }
