@@ -3,6 +3,7 @@ import GUI from 'lil-gui';
 // import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { TrackballControls } from 'three/addons/controls/TrackballControls.js';
 import { inverseLerp, lerp } from 'three/src/math/MathUtils.js';
+import anime from 'animejs';
 
 const sound_counts = {
   acid: 8,
@@ -10,6 +11,8 @@ const sound_counts = {
   new: 5,
   test_21: 6,
 };
+
+let GAME_STATE: "LOADING" | "PRESS_TO_START" | "FIRST_TRIP" | "SECOND_TRIP" | "THIRD_TRIP" = "LOADING";
 
 const sound_urls = objectMap(sound_counts, (count, key) => fromCount(count, k => {
   return new URL(`./music_${key}/${k + 1}.mp3`, import.meta.url).href
@@ -31,6 +34,7 @@ function variables(pos: THREE.Vector3): [number, number] {
   let ang_y = Math.atan2(pos.y, Math.sqrt(pos.x * pos.x + pos.z * pos.z));
   let u = remap(ang_x, -Math.PI, Math.PI, 0, 1);
   let v = remap(ang_y, -Math.PI / 2, Math.PI / 2, 0, 1);
+  u = (u + .2) % 1;
 
   var tx = Math.min(u * noise_data.width | 0, noise_data.width - 1);
   var ty = Math.min(v * noise_data.height | 0, noise_data.height - 1);
@@ -47,6 +51,7 @@ THREE.DefaultLoadingManager.onLoad = () => {
   window.addEventListener("pointerdown", _ => {
     init_audio();
   }, { once: true });
+  GAME_STATE = "PRESS_TO_START";
   loading_div.innerText = "Click to start!";
 }
 
@@ -65,7 +70,7 @@ const scene = new THREE.Scene();
 const renderer = new THREE.WebGLRenderer({ antialias: true, canvas: canvas_3d });
 // renderer.shadowMap.enabled = true;
 
-const canvas_ui = document.querySelector<HTMLCanvasElement>('#ui')!;
+const canvas_ui = document.querySelector<HTMLCanvasElement>('#ui_canvas')!;
 let ctx_ui = canvas_ui.getContext("2d")!;
 canvas_ui.width = canvas_ui.clientWidth;
 canvas_ui.height = canvas_ui.clientHeight;
@@ -224,6 +229,7 @@ async function init_audio() {
   }));
 
   loading_div.style.display = "none";
+  GAME_STATE = "FIRST_TRIP";
   requestAnimationFrame(every_frame);
 }
 
@@ -296,8 +302,8 @@ document.addEventListener("keyup", ev => {
 // temp, to be changed by sounds
 // let variable_1_left_element = document.querySelector<HTMLDivElement>("#variable_1_left")!
 // let variable_1_right_element = document.querySelector<HTMLDivElement>("#variable_1_right")!
-let variable_2_left_element = document.querySelector<HTMLDivElement>("#variable_2_left")!
-let variable_2_right_element = document.querySelector<HTMLDivElement>("#variable_2_right")!
+// let variable_2_left_element = document.querySelector<HTMLDivElement>("#variable_2_left")!
+// let variable_2_right_element = document.querySelector<HTMLDivElement>("#variable_2_right")!
 
 let last_sign_1: number | null = null;
 let last_sign_2: number | null = null;
@@ -466,7 +472,16 @@ function every_frame(cur_time: number) {
   }
 
   ctx_ui.clearRect(0, 0, canvas_ui.width, canvas_ui.height);
-  ctx_ui.strokeStyle = "black";
+  const bg_gradient = ctx_ui.createLinearGradient(0, 0, 0, canvas_ui.height);
+  bg_gradient.addColorStop(0, "#0B91C6");
+  bg_gradient.addColorStop(1, "#0F4DA4");
+  ctx_ui.fillStyle = bg_gradient;
+  ctx_ui.fillRect(0, 0, canvas_ui.width, canvas_ui.height);
+
+
+  // ctx_ui.fillStyle =
+  // ctx_ui.fillRect
+  ctx_ui.strokeStyle = "lime";
 
   let hw = canvas_ui.width / 2;
   let h = canvas_ui.height;
@@ -488,7 +503,7 @@ function every_frame(cur_time: number) {
 
   ctx_ui.beginPath();
   for (let x = 0; x < hw; x++) {
-    let y = wave_ui((x - hw / 2), ui_time, v1_right);
+    let y = wave_ui((x - hw / 2), -ui_time, v1_right);
 
     y = remap(y, -2, 2, 0, h);
     if (x == 0) {
@@ -499,21 +514,53 @@ function every_frame(cur_time: number) {
   }
   ctx_ui.stroke();
 
+  const hm = 120; // half of middle
+  const middle_gradient = ctx_ui.createLinearGradient(hw - hm, 0, hw + hm, 0);
+  middle_gradient.addColorStop(0, "green");
+  middle_gradient.addColorStop(.02, "cyan");
+  middle_gradient.addColorStop(.04, "darkcyan");
+  middle_gradient.addColorStop(.08, "#757575");
+  middle_gradient.addColorStop(1 - .08, "#757575");
+  middle_gradient.addColorStop(1 - .04, "darkcyan");
+  middle_gradient.addColorStop(1 - .02, "cyan");
+  middle_gradient.addColorStop(1 - 0, "green");
+  ctx_ui.fillStyle = middle_gradient;
+  ctx_ui.fillRect(hw - hm, 0, hm * 2, canvas_ui.height);
+
+  const top_gradient = ctx_ui.createLinearGradient(0, 0, 0, 20);
+  top_gradient.addColorStop(0, "green");
+  top_gradient.addColorStop(0.4, "cyan");
+  top_gradient.addColorStop(0.6, "darkcyan");
+  top_gradient.addColorStop(1, "darkgreen");
+
+  const bottom_gradient = ctx_ui.createLinearGradient(0, canvas_ui.height - 20, 0, canvas_ui.height);
+  bottom_gradient.addColorStop(0, "green");
+  bottom_gradient.addColorStop(0.4, "cyan");
+  bottom_gradient.addColorStop(0.6, "darkcyan");
+  bottom_gradient.addColorStop(1, "darkgreen");
+
+  ctx_ui.fillStyle = top_gradient
+  ctx_ui.fillRect(0, 0, canvas_ui.width, 20);
+
+  ctx_ui.fillStyle = bottom_gradient
+  ctx_ui.fillRect(0, canvas_ui.height - 20, canvas_ui.width, 20);
+
+
   // temp, to be changed to sounds
-  let col_v1_left = new THREE.Color();
-  col_v1_left.setHSL(v1_left, 1, .5);
-  let col_v1_right = new THREE.Color();
-  col_v1_right.setHSL(v1_right, 1, .5);
+  // let col_v1_left = new THREE.Color();
+  // col_v1_left.setHSL(v1_left, 1, .5);
+  // let col_v1_right = new THREE.Color();
+  // col_v1_right.setHSL(v1_right, 1, .5);
 
-  let col_v2_left = new THREE.Color();
-  col_v2_left.setHSL(v2_left, 1, .5);
-  let col_v2_right = new THREE.Color();
-  col_v2_right.setHSL(v2_right, 1, .5);
+  // let col_v2_left = new THREE.Color();
+  // col_v2_left.setHSL(v2_left, 1, .5);
+  // let col_v2_right = new THREE.Color();
+  // col_v2_right.setHSL(v2_right, 1, .5);
 
-  variable_2_left_element.innerText = v2_left.toFixed(4);
-  variable_2_right_element.innerText = v2_right.toFixed(4);
-  variable_2_left_element.style.backgroundColor = "#" + col_v2_left.getHexString();
-  variable_2_right_element.style.backgroundColor = "#" + col_v2_right.getHexString();
+  // variable_2_left_element.innerText = v2_left.toFixed(4);
+  // variable_2_right_element.innerText = v2_right.toFixed(4);
+  // variable_2_left_element.style.backgroundColor = "#" + col_v2_left.getHexString();
+  // variable_2_right_element.style.backgroundColor = "#" + col_v2_right.getHexString();
 
   if (resizeRendererToDisplaySize(renderer)) {
     let aspect = .5 * renderer.domElement.clientWidth / renderer.domElement.clientHeight;
@@ -533,13 +580,13 @@ function every_frame(cur_time: number) {
     canvas_ui.height = canvas_ui.clientHeight;
   }
 
-  renderer.setClearColor(col_v1_left);
+  // renderer.setClearColor(col_v1_left);
   renderer.setViewport(0, 0, canvas_3d.clientWidth / 2, canvas_3d.clientHeight);
   renderer.setScissor(0, 0, canvas_3d.clientWidth / 2, canvas_3d.clientHeight);
   renderer.setScissorTest(true);
   renderer.render(scene, camera_left);
 
-  renderer.setClearColor(col_v1_right);
+  // renderer.setClearColor(col_v1_right);
   renderer.setViewport(canvas_3d.clientWidth / 2, 0, canvas_3d.clientWidth / 2, canvas_3d.clientHeight);
   renderer.setScissor(canvas_3d.clientWidth / 2, 0, canvas_3d.clientWidth / 2, canvas_3d.clientHeight);
   renderer.setScissorTest(true);
@@ -558,7 +605,7 @@ function wave_ui(x: number, t: number, value: number) {
   let amplitudes = [1, .3, .05];
   let y = 0;
   for (let k = 0; k < 3; k++) {
-    y += amplitudes[k] * Math.sin(x * freqs[k] + phases[k] + speeds[k] * ui_time);
+    y += amplitudes[k] * Math.sin(x * freqs[k] + phases[k] + speeds[k] * t);
   }
   return y;
 }
