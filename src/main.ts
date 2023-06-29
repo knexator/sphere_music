@@ -7,10 +7,11 @@ import { inverseLerp, lerp } from 'three/src/math/MathUtils.js';
 const sound_counts = {
   acid: 8,
   chords: 8,
-  new: 8,
+  new: 5,
 };
 
 const sound_urls = objectMap(sound_counts, (count, key) => fromCount(count, k => {
+  console.log(`./music_${key}/${k + 1}.mp3`);
   return new URL(`./music_${key}/${k + 1}.mp3`, import.meta.url).href
 }));
 
@@ -111,12 +112,8 @@ controls.noPan = true;
 const audioLoader = new THREE.AudioLoader();
 const audio_promises = objectMap(sound_urls, (urls, _key) => urls.map(url => audioLoader.loadAsync(url)));
 
-let sounds_new_left: GainNode[] = [];
-let sounds_new_right: GainNode[] = [];
-let sounds_acid_left: GainNode[] = [];
-let sounds_acid_right: GainNode[] = [];
-let sounds_chords_left: GainNode[] = [];
-let sounds_chords_right: GainNode[] = [];
+let sounds_left: Record<string, GainNode[]> = {};
+let sounds_right: Record<string, GainNode[]> = {};
 
 class FreqSound {
   gain_node: GainNode;
@@ -167,31 +164,6 @@ async function init_audio() {
     return source;
   }));
 
-  // todo
-  const audio_acid_sources = audio_acid_buffers.map(buffer => {
-    const source = audio_ctx.createBufferSource();
-    source.buffer = buffer;
-    source.loop = true;
-    source.start();
-    return source;
-  });
-
-  const audio_chords_sources = audio_chords_buffers.map(buffer => {
-    const source = audio_ctx.createBufferSource();
-    source.buffer = buffer;
-    source.loop = true;
-    source.start();
-    return source;
-  })
-
-  const audio_new_sources = audio_new_buffers.map(buffer => {
-    const source = audio_ctx.createBufferSource();
-    source.buffer = buffer;
-    source.loop = true;
-    source.start();
-    return source;
-  })
-
   const left_ear = audio_ctx.createStereoPanner();
   left_ear.pan.value = -1;
   left_ear.connect(audio_ctx.destination);
@@ -206,48 +178,19 @@ async function init_audio() {
   sound_wave_2_left = new FreqSound(left_ear, true);
   sound_wave_2_right = new FreqSound(right_ear, true);
 
-
-  sounds_acid_left = audio_acid_sources.map(source => {
+  sounds_left = objectMap(audio_sources, (sources, _key) => sources.map(source => {
     const gain_node = audio_ctx.createGain();
     gain_node.gain.value = 0.0;
     source.connect(gain_node).connect(left_ear);
     return gain_node;
-  })
+  }));
 
-  sounds_acid_right = audio_acid_sources.map(source => {
+  sounds_right = objectMap(audio_sources, (sources, _key) => sources.map(source => {
     const gain_node = audio_ctx.createGain();
     gain_node.gain.value = 0.0;
     source.connect(gain_node).connect(right_ear);
     return gain_node;
-  })
-
-  sounds_chords_left = audio_chords_sources.map(source => {
-    const gain_node = audio_ctx.createGain();
-    gain_node.gain.value = 0.0;
-    source.connect(gain_node).connect(left_ear);
-    return gain_node;
-  })
-
-  sounds_chords_right = audio_chords_sources.map(source => {
-    const gain_node = audio_ctx.createGain();
-    gain_node.gain.value = 0.0;
-    source.connect(gain_node).connect(right_ear);
-    return gain_node;
-  })
-
-  sounds_new_left = audio_new_sources.map(source => {
-    const gain_node = audio_ctx.createGain();
-    gain_node.gain.value = 0.0;
-    source.connect(gain_node).connect(left_ear);
-    return gain_node;
-  })
-
-  sounds_new_right = audio_new_sources.map(source => {
-    const gain_node = audio_ctx.createGain();
-    gain_node.gain.value = 0.0;
-    source.connect(gain_node).connect(right_ear);
-    return gain_node;
-  })
+  }));
 
   loading_div.style.display = "none";
   requestAnimationFrame(every_frame);
@@ -375,10 +318,9 @@ function every_frame(cur_time: number) {
     scene.add(cur_markers);
   }
 
-  const sounds_left = { "chords": sounds_chords_left, "acid": sounds_acid_left, "new": sounds_new_left };
-  sounds_acid_left.forEach(x => x.gain.value = 0);
-  sounds_chords_left.forEach(x => x.gain.value = 0);
-  sounds_new_left.forEach(x => x.gain.value = 0);
+  objectMap(sounds_left, (sounds, _key) => sounds.forEach(x => {
+    x.gain.value = 0;
+  }));
   if (CONFIG.music_1 === "wave") {
     sound_wave_1_left.setActive(true);
     sound_wave_1_left.setValue(v1_left);
@@ -421,10 +363,9 @@ function every_frame(cur_time: number) {
     }
   }
 
-  const sounds_right = { "chords": sounds_chords_right, "acid": sounds_acid_right, "new": sounds_new_right };
-  sounds_acid_right.forEach(x => x.gain.value = 0);
-  sounds_chords_right.forEach(x => x.gain.value = 0);
-  sounds_new_right.forEach(x => x.gain.value = 0);
+  objectMap(sounds_right, (sounds, _key) => sounds.forEach(x => {
+    x.gain.value = 0;
+  }));
   if (CONFIG.music_1 === "wave") {
     sound_wave_1_right.setActive(true);
     sound_wave_1_right.setValue(v1_right);
@@ -546,7 +487,7 @@ export function fromCount<T>(n: number, callback: (index: number) => T): T[] {
 
 // returns a new object with the values at each key mapped using mapFn(value)
 function objectMap<T, S>(object: Record<string, T>, mapFn: (val: T, key: string) => S): Record<string, S> {
-  return Object.keys(object).reduce(function(result, key) {
+  return Object.keys(object).reduce(function (result, key) {
     // @ts-ignore
     result[key] = mapFn(object[key], key)
     return result
