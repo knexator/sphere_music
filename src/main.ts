@@ -60,13 +60,19 @@ gui.add(CONFIG, 'fade_between_loops');
 gui.add(CONFIG, 'music_1', ["wave", ...Object.keys(sound_counts)]);
 gui.add(CONFIG, 'music_2', ["none", "wave", ...Object.keys(sound_counts)]);
 
-const canvas = document.querySelector<HTMLCanvasElement>('#c')!;
+const canvas_3d = document.querySelector<HTMLCanvasElement>('#c')!;
 const scene = new THREE.Scene();
-const renderer = new THREE.WebGLRenderer({ antialias: true, canvas: canvas });
+const renderer = new THREE.WebGLRenderer({ antialias: true, canvas: canvas_3d });
 // renderer.shadowMap.enabled = true;
 
-// const camera_1 = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
-const camera_left = new THREE.OrthographicCamera();
+const canvas_ui = document.querySelector<HTMLCanvasElement>('#ui')!;
+let ctx_ui = canvas_ui.getContext("2d")!;
+canvas_ui.width = canvas_ui.clientWidth;
+canvas_ui.height = canvas_ui.clientHeight;
+
+const frustumSize = 2.1;
+let aspect = .5 * renderer.domElement.clientWidth / renderer.domElement.clientHeight;
+const camera_left = new THREE.OrthographicCamera(frustumSize * aspect / - 2, frustumSize * aspect / 2, frustumSize / 2, frustumSize / - 2, 3, 8);
 const camera_right = camera_left.clone();
 
 camera_left.position.set(0, 0, 5);
@@ -92,10 +98,14 @@ controls_right.noZoom = true;
 let mouse_state = {
   moving_any_camera: false,
   moving_left_camera: false,
+  drag_delta: new THREE.Vector2(0, 0),
 }
 window.addEventListener("pointerdown", ev => {
   mouse_state.moving_any_camera = true;
   mouse_state.moving_left_camera = .5 > ev.offsetX / renderer.domElement.clientWidth;
+});
+window.addEventListener("pointermove", ev => {
+  mouse_state.drag_delta.set(ev.movementX, ev.movementY);
 });
 window.addEventListener("pointerup", _ev => {
   mouse_state.moving_any_camera = false;
@@ -309,6 +319,7 @@ function every_frame(cur_time: number) {
       camera_right.rotateY(Math.PI);
       // camera_right.rotateZ(Math.PI);
     } else {
+      /*
       controls_right.update();
       // controls_left.reset();
       // controls_left.update();
@@ -317,6 +328,7 @@ function every_frame(cur_time: number) {
       camera_left.position.multiplyScalar(-1);
       camera_left.rotateY(Math.PI);
       // camera_left.rotateZ(Math.PI);
+      */
     }
   }
 
@@ -449,6 +461,37 @@ function every_frame(cur_time: number) {
     }
   }
 
+  ctx_ui.clearRect(0, 0, canvas_ui.width, canvas_ui.height);
+  ctx_ui.strokeStyle = "black";
+
+  let hw = canvas_ui.width / 2;
+  let h = canvas_ui.height;
+
+  ctx_ui.lineWidth = 3;
+  ctx_ui.beginPath();
+  for (let x = 0; x < hw; x++) {
+    let y = Math.sin((x - hw / 2) * remap(1 / (v1_left + 1), .5, 1, .03, .25));
+    y = remap(y, -1, 1, 0, h);
+    if (x == 0) {
+      ctx_ui.moveTo(x, y);
+    } else {
+      ctx_ui.lineTo(x, y);
+    }
+  }
+  ctx_ui.stroke();
+
+  ctx_ui.beginPath();
+  for (let x = 0; x < hw; x++) {
+    let y = Math.sin((x - hw / 2) * remap(1 / (v1_right + 1), .5, 1, .03, .25));
+    y = remap(y, -1, 1, 0, h);
+    if (x == 0) {
+      ctx_ui.moveTo(x + hw, y);
+    } else {
+      ctx_ui.lineTo(x + hw, y);
+    }
+  }
+  ctx_ui.stroke();
+
   // temp, to be changed to sounds
   let col_v1_left = new THREE.Color();
   col_v1_left.setHSL(v1_left, 1, .5);
@@ -466,22 +509,32 @@ function every_frame(cur_time: number) {
   variable_2_right_element.style.backgroundColor = "#" + col_v2_right.getHexString();
 
   if (resizeRendererToDisplaySize(renderer)) {
-    // const canvas = renderer.domElement;
-    // camera_1.aspect = .5 * canvas.clientWidth / canvas.clientHeight;
-    // camera_1.updateProjectionMatrix();
-    // camera_2.aspect = .5 * canvas.clientWidth / canvas.clientHeight;
-    // camera_2.updateProjectionMatrix();
+    let aspect = .5 * renderer.domElement.clientWidth / renderer.domElement.clientHeight;
+    camera_left.left = -frustumSize * aspect / 2;
+    camera_left.right = frustumSize * aspect / 2;
+    camera_left.top = frustumSize / 2;
+    camera_left.bottom = -frustumSize / 2;
+    camera_right.left = -frustumSize * aspect / 2;
+    camera_right.right = frustumSize * aspect / 2;
+    camera_right.top = frustumSize / 2;
+    camera_right.bottom = -frustumSize / 2;
+
+    camera_left.updateProjectionMatrix();
+    camera_right.updateProjectionMatrix();
+
+    canvas_ui.width = canvas_ui.clientWidth;
+    canvas_ui.height = canvas_ui.clientHeight;
   }
 
   renderer.setClearColor(col_v1_left);
-  renderer.setViewport(0, 0, canvas.clientWidth / 2, canvas.clientHeight);
-  renderer.setScissor(0, 0, canvas.clientWidth / 2, canvas.clientHeight);
+  renderer.setViewport(0, 0, canvas_3d.clientWidth / 2, canvas_3d.clientHeight);
+  renderer.setScissor(0, 0, canvas_3d.clientWidth / 2, canvas_3d.clientHeight);
   renderer.setScissorTest(true);
   renderer.render(scene, camera_left);
 
   renderer.setClearColor(col_v1_right);
-  renderer.setViewport(canvas.clientWidth / 2, 0, canvas.clientWidth / 2, canvas.clientHeight);
-  renderer.setScissor(canvas.clientWidth / 2, 0, canvas.clientWidth / 2, canvas.clientHeight);
+  renderer.setViewport(canvas_3d.clientWidth / 2, 0, canvas_3d.clientWidth / 2, canvas_3d.clientHeight);
+  renderer.setScissor(canvas_3d.clientWidth / 2, 0, canvas_3d.clientWidth / 2, canvas_3d.clientHeight);
   renderer.setScissorTest(true);
   renderer.render(scene, camera_right);
 
