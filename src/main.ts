@@ -8,10 +8,10 @@ const sound_counts = {
   acid: 8,
   chords: 8,
   new: 5,
+  test_21: 6,
 };
 
 const sound_urls = objectMap(sound_counts, (count, key) => fromCount(count, k => {
-  console.log(`./music_${key}/${k + 1}.mp3`);
   return new URL(`./music_${key}/${k + 1}.mp3`, import.meta.url).href
 }));
 
@@ -52,13 +52,13 @@ THREE.DefaultLoadingManager.onLoad = () => {
 
 const gui = new GUI();
 const CONFIG = {
-  music_1: "new",
+  music_1: "test_21",
   music_2: "none",
-  fade_between_loops: false,
+  fade_between_loops: true,
 }
 gui.add(CONFIG, 'fade_between_loops');
-gui.add(CONFIG, 'music_1', ["chords", "acid", "wave", "new"]);
-gui.add(CONFIG, 'music_2', ["none", "chords", "acid", "wave", "new"]);
+gui.add(CONFIG, 'music_1', ["wave", ...Object.keys(sound_counts)]);
+gui.add(CONFIG, 'music_2', ["none", "wave", ...Object.keys(sound_counts)]);
 
 const canvas = document.querySelector<HTMLCanvasElement>('#c')!;
 const scene = new THREE.Scene();
@@ -306,7 +306,7 @@ function every_frame(cur_time: number) {
     input_state.action_just_pressed = true;
   }
   if (last_sign_2 !== null && last_sign_2 !== cur_sign_2) {
-    input_state.action_just_pressed = true;
+    // input_state.action_just_pressed = true;
   }
   last_sign_1 = cur_sign_1;
   last_sign_2 = cur_sign_2;
