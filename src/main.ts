@@ -302,11 +302,15 @@ let variable_2_right_element = document.querySelector<HTMLDivElement>("#variable
 let last_sign_1: number | null = null;
 let last_sign_2: number | null = null;
 
+let ui_time = 0;
+
 let last_time = 0;
 function every_frame(cur_time: number) {
   // @ts-ignore
   let delta_time = (cur_time - last_time) * .001;
   last_time = cur_time;
+
+  ui_time += delta_time;
 
   if (mouse_state.moving_any_camera) {
     if (mouse_state.moving_left_camera) {
@@ -468,10 +472,12 @@ function every_frame(cur_time: number) {
   let h = canvas_ui.height;
 
   ctx_ui.lineWidth = 3;
+
   ctx_ui.beginPath();
   for (let x = 0; x < hw; x++) {
-    let y = Math.sin((x - hw / 2) * remap(1 / (v1_left + 1), .5, 1, .03, .25));
-    y = remap(y, -1, 1, 0, h);
+    let y = wave_ui((x - hw / 2), ui_time, v1_left);
+
+    y = remap(y, -2, 2, 0, h);
     if (x == 0) {
       ctx_ui.moveTo(x, y);
     } else {
@@ -482,8 +488,9 @@ function every_frame(cur_time: number) {
 
   ctx_ui.beginPath();
   for (let x = 0; x < hw; x++) {
-    let y = Math.sin((x - hw / 2) * remap(1 / (v1_right + 1), .5, 1, .03, .25));
-    y = remap(y, -1, 1, 0, h);
+    let y = wave_ui((x - hw / 2), ui_time, v1_right);
+
+    y = remap(y, -2, 2, 0, h);
     if (x == 0) {
       ctx_ui.moveTo(x + hw, y);
     } else {
@@ -540,6 +547,20 @@ function every_frame(cur_time: number) {
 
 
   requestAnimationFrame(every_frame);
+}
+
+function wave_ui(x: number, t: number, value: number) {
+  let main_freq = remap(1 / (value + 1), .5, 1, .03, .25);
+
+  let freqs = [main_freq, .12, .08];
+  let phases = [0, .1, -.1];
+  let speeds = [10, 15, 30];
+  let amplitudes = [1, .3, .05];
+  let y = 0;
+  for (let k = 0; k < 3; k++) {
+    y += amplitudes[k] * Math.sin(x * freqs[k] + phases[k] + speeds[k] * ui_time);
+  }
+  return y;
 }
 
 
