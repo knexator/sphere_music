@@ -1,7 +1,5 @@
 import * as THREE from 'three';
 import GUI from 'lil-gui';
-// import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { TrackballControls } from 'three/addons/controls/TrackballControls.js';
 import { inverseLerp, lerp } from 'three/src/math/MathUtils.js';
 import anime from 'animejs';
 
@@ -90,20 +88,6 @@ camera_left.position.setZ(magic_number * aspect);
 camera_right.position.set(5, 0, 0);
 camera_right.lookAt(0, 0, 0);
 camera_right.position.setZ(-magic_number * aspect)
-
-// const controls_left = new TrackballControls(camera_left, renderer.domElement);
-// controls_left.dynamicDampingFactor = .9;
-// controls_left.rotateSpeed = 5;
-// controls_left.noPan = true;
-// controls_left.noZoom = true;
-// controls_left.enabled = false;
-
-// const controls_right = new TrackballControls(camera_right, renderer.domElement);
-// controls_right.dynamicDampingFactor = .9;
-// controls_right.rotateSpeed = 5;
-// controls_right.noPan = true;
-// controls_right.noZoom = true;
-// controls_right.enabled = false;
 
 let mouse_state = {
   moving_any_camera: false,
@@ -250,8 +234,8 @@ async function init_audio() {
   anime({
     targets: cutscene_landing,
     t: 1,
-    delay: 200,
-    duration: 1000,
+    delay: DEBUG_SKIP_CUTSCENE ? 10 : 200,
+    duration: DEBUG_SKIP_CUTSCENE ? 10 : 1000,
     easing: "easeOutQuad",
     update(_anim) {
       player_left.position.setZ(lerp(3, 1, cutscene_landing.t))
@@ -266,8 +250,8 @@ async function init_audio() {
         targets: cutscene_rotation,
         t: 1,
         easing: "easeInOutSine",
-        delay: 800,
-        duration: 1200,
+        delay: DEBUG_SKIP_CUTSCENE ? 10 : 800,
+        duration: DEBUG_SKIP_CUTSCENE ? 10 : 1200,
         update(_anim) {
           let dt = cutscene_rotation.t - cutscene_rotation.prev_t;
           cutscene_rotation.prev_t = cutscene_rotation.t;
@@ -290,6 +274,8 @@ async function init_audio() {
 
   requestAnimationFrame(every_frame);
 }
+
+const DEBUG_SKIP_CUTSCENE = true;
 
 let pos_left = new THREE.Vector3();
 let pos_right = new THREE.Vector3();
@@ -361,6 +347,18 @@ document.addEventListener("keyup", ev => {
 // let variable_2_left_element = document.querySelector<HTMLDivElement>("#variable_2_left")!
 // let variable_2_right_element = document.querySelector<HTMLDivElement>("#variable_2_right")!
 
+let tmp_vec_1 = new THREE.Vector3(0, 0, 0);
+function rotateCamera(cam: THREE.Camera, v: THREE.Vector2) {
+  tmp_vec_1.set(1, 0, 0);
+  tmp_vec_1.applyQuaternion(cam.quaternion);
+  cam.position.applyAxisAngle(tmp_vec_1, -.2 * v.y);
+  tmp_vec_1.set(0, 1, 0);
+  tmp_vec_1.applyQuaternion(cam.quaternion);
+  cam.position.applyAxisAngle(tmp_vec_1, -.2 * v.x);
+  cam.up.copy(tmp_vec_1);
+  cam.lookAt(0, 0, 0);
+}
+
 let last_sign_1: number | null = null;
 let last_sign_2: number | null = null;
 
@@ -374,37 +372,23 @@ function every_frame(cur_time: number) {
 
   ui_time += delta_time;
 
-  // if (mouse_state.moving_any_camera) {
-  //   if (mouse_state.moving_left_camera) {
-  //     controls_left.update();
-  //     console.log("update")
-  //     // controls_right.reset();
-  //     // controls_right.update();
-  //     camera_right.rotation.copy(camera_left.rotation)
-  //     camera_right.position.copy(camera_left.position);
-  //     camera_right.position.multiplyScalar(-1);
-  //     camera_right.rotateY(Math.PI);
-  //     // camera_right.rotateZ(Math.PI);
-  //   } else {
-  //     /*
-  //     controls_right.update();
-  //     // controls_left.reset();
-  //     // controls_left.update();
-  //     camera_left.rotation.copy(camera_right.rotation)
-  //     camera_left.position.copy(camera_right.position);
-  //     camera_left.position.multiplyScalar(-1);
-  //     camera_left.rotateY(Math.PI);
-  //     // camera_left.rotateZ(Math.PI);
-  //     */
-  //   }
-  // }
+  if (mouse_state.moving_any_camera) {
+    if (mouse_state.moving_left_camera) {
+      rotateCamera(camera_left, new THREE.Vector2(mouse_state.drag_delta.x * delta_time, mouse_state.drag_delta.y * delta_time));
+      rotateCamera(camera_right, new THREE.Vector2(mouse_state.drag_delta.x * delta_time, -mouse_state.drag_delta.y * delta_time));
+    } else {
+      rotateCamera(camera_right, new THREE.Vector2(mouse_state.drag_delta.x * delta_time, mouse_state.drag_delta.y * delta_time));
+      rotateCamera(camera_left, new THREE.Vector2(mouse_state.drag_delta.x * delta_time, -mouse_state.drag_delta.y * delta_time));
+    }
+  }
 
+  let rot = Number(input_state.ccw) - Number(input_state.cw);
   let movement_vector = new THREE.Vector2(
     Number(input_state.right) - Number(input_state.left),
     Number(input_state.up) - Number(input_state.down),
   );
-
-  let rot = Number(input_state.ccw) - Number(input_state.cw);
+  movement_vector.multiplyScalar(.5);
+  rot *= .5;
   if (input_state.precision) {
     rot *= .2;
     movement_vector.multiplyScalar(.1);
@@ -649,7 +633,7 @@ function every_frame(cur_time: number) {
   renderer.setScissorTest(true);
   renderer.render(scene, camera_right);
 
-
+  mouse_state.drag_delta.set(0, 0);
   requestAnimationFrame(every_frame);
 }
 
