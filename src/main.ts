@@ -12,7 +12,7 @@ const sound_counts = {
   test_21: 6,
 };
 
-let GAME_STATE: "LOADING" | "PRESS_TO_START" | "FIRST_TRIP" | "SECOND_TRIP" | "THIRD_TRIP" = "LOADING";
+let GAME_STATE: "LOADING" | "PRESS_TO_START" | "CUTSCENE_1" | "FIRST_TRIP" | "SECOND_TRIP" | "THIRD_TRIP" = "LOADING";
 
 const sound_urls = objectMap(sound_counts, (count, key) => fromCount(count, k => {
   return new URL(`./music_${key}/${k + 1}.mp3`, import.meta.url).href
@@ -77,27 +77,32 @@ canvas_ui.height = canvas_ui.clientHeight;
 
 const frustumSize = 2.1;
 let aspect = .5 * renderer.domElement.clientWidth / renderer.domElement.clientHeight;
-const camera_left = new THREE.OrthographicCamera(frustumSize * aspect / - 2, frustumSize * aspect / 2, frustumSize / 2, frustumSize / - 2, 3, 8);
+const camera_left = new THREE.OrthographicCamera(frustumSize * aspect / - 2, frustumSize * aspect / 2, frustumSize / 2, frustumSize / - 2, 1, 8);
 const camera_right = camera_left.clone();
 
-camera_left.position.set(0, 0, 5);
-camera_left.lookAt(0, 0, 0);
-camera_right.position.set(0, 0, -5);
-camera_right.lookAt(0, 0, 0);
-camera_right.rotateY(Math.PI);
+console.log(aspect);
+const magic_number = 1.05;
 
-const controls_left = new TrackballControls(camera_left, renderer.domElement);
-controls_left.dynamicDampingFactor = .9;
-controls_left.rotateSpeed = 5;
-controls_left.noPan = true;
-controls_left.noZoom = true;
+camera_left.position.set(5, 0, 0);
+camera_left.lookAt(0, 0, 0);
+camera_left.position.setZ(magic_number * aspect);
+
+camera_right.position.set(5, 0, 0);
+camera_right.lookAt(0, 0, 0);
+camera_right.position.setZ(-magic_number * aspect)
+
+// const controls_left = new TrackballControls(camera_left, renderer.domElement);
+// controls_left.dynamicDampingFactor = .9;
+// controls_left.rotateSpeed = 5;
+// controls_left.noPan = true;
+// controls_left.noZoom = true;
 // controls_left.enabled = false;
 
-const controls_right = new TrackballControls(camera_right, renderer.domElement);
-controls_right.dynamicDampingFactor = .9;
-controls_right.rotateSpeed = 5;
-controls_right.noPan = true;
-controls_right.noZoom = true;
+// const controls_right = new TrackballControls(camera_right, renderer.domElement);
+// controls_right.dynamicDampingFactor = .9;
+// controls_right.rotateSpeed = 5;
+// controls_right.noPan = true;
+// controls_right.noZoom = true;
 // controls_right.enabled = false;
 
 let mouse_state = {
@@ -106,8 +111,10 @@ let mouse_state = {
   drag_delta: new THREE.Vector2(0, 0),
 }
 window.addEventListener("pointerdown", ev => {
-  mouse_state.moving_any_camera = true;
-  mouse_state.moving_left_camera = .5 > ev.offsetX / renderer.domElement.clientWidth;
+  if (GAME_STATE === "FIRST_TRIP" || GAME_STATE === "SECOND_TRIP" || GAME_STATE === "THIRD_TRIP") {
+    mouse_state.moving_any_camera = true;
+    mouse_state.moving_left_camera = .5 > ev.offsetX / renderer.domElement.clientWidth;
+  }
 });
 window.addEventListener("pointermove", ev => {
   mouse_state.drag_delta.set(ev.movementX, ev.movementY);
@@ -136,7 +143,7 @@ window.addEventListener("pointerup", _ev => {
 // main sphere
 {
   const sphere_texture = (new THREE.TextureLoader()).load("https://s3-us-west-2.amazonaws.com/s.cdpn.io/141228/earthmap1k.jpg");
-  const sphere_geo = new THREE.SphereGeometry(1, 32, 16);
+  const sphere_geo = new THREE.SphereGeometry(1, 64, 32);
   const sphere_mat = new THREE.MeshPhongMaterial({
     map: sphere_texture,
   })
@@ -229,7 +236,58 @@ async function init_audio() {
   }));
 
   loading_div.style.display = "none";
-  GAME_STATE = "FIRST_TRIP";
+  GAME_STATE = "CUTSCENE_1";
+
+  let cutscene_landing = {
+    t: 0,
+  };
+
+  let cutscene_rotation = {
+    t: 0,
+    prev_t: 0,
+  };
+
+  anime({
+    targets: cutscene_landing,
+    t: 1,
+    delay: 200,
+    duration: 1000,
+    easing: "easeOutQuad",
+    update(_anim) {
+      player_left.position.setZ(lerp(3, 1, cutscene_landing.t))
+      player_right.position.setZ(lerp(-3, -1, cutscene_landing.t))
+    },
+    complete(_anim) {
+      player_left.attach(camera_left);
+      player_right.attach(camera_right);
+      let initial_left_z = camera_left.position.z;
+      let initial_right_z = camera_right.position.z;
+      anime({
+        targets: cutscene_rotation,
+        t: 1,
+        easing: "easeInOutSine",
+        delay: 800,
+        duration: 1200,
+        update(_anim) {
+          let dt = cutscene_rotation.t - cutscene_rotation.prev_t;
+          cutscene_rotation.prev_t = cutscene_rotation.t;
+          camera_left.rotateY(-dt * Math.PI / 2);
+          // x: 5, y: 0, z: -0.20 => x: 0, y: 0, z: 5
+          camera_left.position.set(5 * Math.cos(cutscene_rotation.t * Math.PI / 2), 0, 5 * Math.sin(cutscene_rotation.t * Math.PI / 2) + initial_left_z * (1 - cutscene_rotation.t));
+
+          camera_right.rotateY(dt * Math.PI / 2);
+          // x: -5, y: 0, z: -0.20 => x: 0, y: 0, z: -5
+          camera_right.position.set(-5 * Math.cos(cutscene_rotation.t * Math.PI / 2), 0, -5 * Math.sin(cutscene_rotation.t * Math.PI / 2) + initial_right_z * (1 - cutscene_rotation.t));
+        },
+        complete(_anim) {
+          scene.attach(camera_left);
+          scene.attach(camera_right);
+          GAME_STATE = "FIRST_TRIP"
+        },
+      })
+    },
+  })
+
   requestAnimationFrame(every_frame);
 }
 
@@ -237,27 +295,25 @@ let pos_left = new THREE.Vector3();
 let pos_right = new THREE.Vector3();
 const players = new THREE.Object3D();
 scene.add(players);
-{
-  const players_geo = new THREE.PlaneGeometry(.1, .1);
-  const player_1_mat = new THREE.MeshPhongMaterial({ color: "#FFD524" });
-  const player_2_mat = new THREE.MeshPhongMaterial({ color: "#55185D" });
-  player_2_mat.side = THREE.BackSide;
+// {
+const players_geo = new THREE.PlaneGeometry(.1, .1);
+const player_left_mat = new THREE.MeshPhongMaterial({ color: "#FFD524" });
+const player_right_mat = new THREE.MeshPhongMaterial({ color: "#55185D" });
+player_right_mat.side = THREE.BackSide;
 
-  const player_1 = new THREE.Mesh(players_geo, player_1_mat);
-  const player_2 = new THREE.Mesh(players_geo, player_2_mat);
+const player_left = new THREE.Mesh(players_geo, player_left_mat);
+const player_right = new THREE.Mesh(players_geo, player_right_mat);
 
-  player_1.add(new THREE.AxesHelper(.1));
-  player_2.add(new THREE.AxesHelper(.1));
+player_left.add(new THREE.AxesHelper(.1));
+player_right.add(new THREE.AxesHelper(.1));
 
-  player_1.position.setZ(1);
-  player_2.position.setZ(-1);
-  player_2.rotateX(Math.PI);
-  player_2.rotateY(Math.PI);
+player_left.position.setZ(1);
+player_right.position.setZ(-1);
+player_right.rotateX(Math.PI);
+player_right.rotateY(Math.PI);
 
-  players.add(player_1, player_2);
-}
-
-// players.add(camera_1);
+players.add(player_left, player_right);
+// }
 
 let input_state = {
   left: false,
@@ -318,29 +374,30 @@ function every_frame(cur_time: number) {
 
   ui_time += delta_time;
 
-  if (mouse_state.moving_any_camera) {
-    if (mouse_state.moving_left_camera) {
-      controls_left.update();
-      // controls_right.reset();
-      // controls_right.update();
-      camera_right.rotation.copy(camera_left.rotation)
-      camera_right.position.copy(camera_left.position);
-      camera_right.position.multiplyScalar(-1);
-      camera_right.rotateY(Math.PI);
-      // camera_right.rotateZ(Math.PI);
-    } else {
-      /*
-      controls_right.update();
-      // controls_left.reset();
-      // controls_left.update();
-      camera_left.rotation.copy(camera_right.rotation)
-      camera_left.position.copy(camera_right.position);
-      camera_left.position.multiplyScalar(-1);
-      camera_left.rotateY(Math.PI);
-      // camera_left.rotateZ(Math.PI);
-      */
-    }
-  }
+  // if (mouse_state.moving_any_camera) {
+  //   if (mouse_state.moving_left_camera) {
+  //     controls_left.update();
+  //     console.log("update")
+  //     // controls_right.reset();
+  //     // controls_right.update();
+  //     camera_right.rotation.copy(camera_left.rotation)
+  //     camera_right.position.copy(camera_left.position);
+  //     camera_right.position.multiplyScalar(-1);
+  //     camera_right.rotateY(Math.PI);
+  //     // camera_right.rotateZ(Math.PI);
+  //   } else {
+  //     /*
+  //     controls_right.update();
+  //     // controls_left.reset();
+  //     // controls_left.update();
+  //     camera_left.rotation.copy(camera_right.rotation)
+  //     camera_left.position.copy(camera_right.position);
+  //     camera_left.position.multiplyScalar(-1);
+  //     camera_left.rotateY(Math.PI);
+  //     // camera_left.rotateZ(Math.PI);
+  //     */
+  //   }
+  // }
 
   let movement_vector = new THREE.Vector2(
     Number(input_state.right) - Number(input_state.left),
