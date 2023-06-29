@@ -66,19 +66,40 @@ const renderer = new THREE.WebGLRenderer({ antialias: true, canvas: canvas });
 // renderer.shadowMap.enabled = true;
 
 // const camera_1 = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
-const camera_1 = new THREE.OrthographicCamera();
-const camera_2 = camera_1.clone();
+const camera_left = new THREE.OrthographicCamera();
+const camera_right = camera_left.clone();
 
-camera_1.position.set(0, 0, 5);
-camera_1.lookAt(0, 0, 0);
-camera_2.position.set(0, 0, -5);
-camera_2.lookAt(0, 0, 0);
+camera_left.position.set(0, 0, 5);
+camera_left.lookAt(0, 0, 0);
+camera_right.position.set(0, 0, -5);
+camera_right.lookAt(0, 0, 0);
+camera_right.rotateY(Math.PI);
 
-const controls = new TrackballControls(camera_1, renderer.domElement);
-controls.dynamicDampingFactor = .9;
-controls.rotateSpeed = 5;
-controls.noPan = true;
+const controls_left = new TrackballControls(camera_left, renderer.domElement);
+controls_left.dynamicDampingFactor = .9;
+controls_left.rotateSpeed = 5;
+controls_left.noPan = true;
+controls_left.noZoom = true;
+// controls_left.enabled = false;
 
+const controls_right = new TrackballControls(camera_right, renderer.domElement);
+controls_right.dynamicDampingFactor = .9;
+controls_right.rotateSpeed = 5;
+controls_right.noPan = true;
+controls_right.noZoom = true;
+// controls_right.enabled = false;
+
+let mouse_state = {
+  moving_any_camera: false,
+  moving_left_camera: false,
+}
+window.addEventListener("pointerdown", ev => {
+  mouse_state.moving_any_camera = true;
+  mouse_state.moving_left_camera = .5 > ev.offsetX / renderer.domElement.clientWidth;
+});
+window.addEventListener("pointerup", _ev => {
+  mouse_state.moving_any_camera = false;
+})
 
 // ambient
 {
@@ -277,7 +298,27 @@ function every_frame(cur_time: number) {
   let delta_time = (cur_time - last_time) * .001;
   last_time = cur_time;
 
-  controls.update();
+  if (mouse_state.moving_any_camera) {
+    if (mouse_state.moving_left_camera) {
+      controls_left.update();
+      // controls_right.reset();
+      // controls_right.update();
+      camera_right.rotation.copy(camera_left.rotation)
+      camera_right.position.copy(camera_left.position);
+      camera_right.position.multiplyScalar(-1);
+      camera_right.rotateY(Math.PI);
+      // camera_right.rotateZ(Math.PI);
+    } else {
+      controls_right.update();
+      // controls_left.reset();
+      // controls_left.update();
+      camera_left.rotation.copy(camera_right.rotation)
+      camera_left.position.copy(camera_right.position);
+      camera_left.position.multiplyScalar(-1);
+      camera_left.rotateY(Math.PI);
+      // camera_left.rotateZ(Math.PI);
+    }
+  }
 
   let movement_vector = new THREE.Vector2(
     Number(input_state.right) - Number(input_state.left),
@@ -436,18 +477,13 @@ function every_frame(cur_time: number) {
   renderer.setViewport(0, 0, canvas.clientWidth / 2, canvas.clientHeight);
   renderer.setScissor(0, 0, canvas.clientWidth / 2, canvas.clientHeight);
   renderer.setScissorTest(true);
-  renderer.render(scene, camera_1);
-
-  camera_2.rotation.copy(camera_1.rotation)
-  camera_2.position.copy(camera_1.position);
-  camera_2.position.multiplyScalar(-1);
-  camera_2.rotateY(Math.PI);
+  renderer.render(scene, camera_left);
 
   renderer.setClearColor(col_v1_right);
   renderer.setViewport(canvas.clientWidth / 2, 0, canvas.clientWidth / 2, canvas.clientHeight);
   renderer.setScissor(canvas.clientWidth / 2, 0, canvas.clientWidth / 2, canvas.clientHeight);
   renderer.setScissorTest(true);
-  renderer.render(scene, camera_2);
+  renderer.render(scene, camera_right);
 
 
   requestAnimationFrame(every_frame);
