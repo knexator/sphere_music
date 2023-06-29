@@ -10,7 +10,7 @@ const sound_counts = {
   test_21: 6,
 };
 
-let GAME_STATE: "LOADING" | "PRESS_TO_START" | "CUTSCENE_1" | "FIRST_TRIP" | "SECOND_TRIP" | "THIRD_TRIP" = "LOADING";
+let GAME_STATE: "LOADING" | "PRESS_TO_START" | "CUTSCENE_1" | "FIRST_TRIP" | "CUTSCENE_2" | "SECOND_TRIP" | "THIRD_TRIP" = "LOADING";
 
 const sound_urls = objectMap(sound_counts, (count, key) => fromCount(count, k => {
   return new URL(`./music_${key}/${k + 1}.mp3`, import.meta.url).href
@@ -50,7 +50,7 @@ THREE.DefaultLoadingManager.onLoad = () => {
     init_audio();
   }, { once: true });
   GAME_STATE = "PRESS_TO_START";
-  loading_div.innerText = "Click to start!";
+  loading_div.innerText = "Click to start!\nUse headphones";
 }
 
 const gui = new GUI();
@@ -175,6 +175,13 @@ let sound_wave_1_right: FreqSound;
 let sound_wave_2_left: FreqSound;
 let sound_wave_2_right: FreqSound;
 
+let cutscene_music_left = {
+  t: 0,
+};
+let cutscene_music_right = {
+  t: 0,
+};
+
 async function init_audio() {
   const audio_buffers: Record<string, AudioBuffer[]> = {};
   for (const [key, value] of Object.entries(audio_promises)) {
@@ -222,7 +229,10 @@ async function init_audio() {
   loading_div.style.display = "none";
   GAME_STATE = "CUTSCENE_1";
 
-  let cutscene_landing = {
+  let cutscene_landing_left = {
+    t: 0,
+  };
+  let cutscene_landing_right = {
     t: 0,
   };
 
@@ -231,26 +241,120 @@ async function init_audio() {
     prev_t: 0,
   };
 
+  let text_1 = "\n\n\nPlanet: Unknown\n\nMission: Find antipodal\nresonating points\n\nEquipment: Two mobile\nG-Wave detectors"
   anime({
-    targets: cutscene_landing,
+    targets: cutscene_text_state,
+    n_chars_shown: text_1.length,
+    easing: "linear",
+    duration: DEBUG_SKIP_CUTSCENE ? 10 : 3000,
+    update(_anim) {
+      ui_text_element.innerText = text_1.slice(0, cutscene_text_state.n_chars_shown);
+    },
+    complete(_anim) {
+      anime({
+        delay: DEBUG_SKIP_CUTSCENE ? 10 : 3400,
+        complete(_anim2) {
+          ui_text_element.innerText = "";
+        }
+      })
+    },
+  });
+
+  anime({
+    targets: cutscene_landing_left,
     t: 1,
     delay: DEBUG_SKIP_CUTSCENE ? 10 : 200,
     duration: DEBUG_SKIP_CUTSCENE ? 10 : 1000,
     easing: "easeOutQuad",
     update(_anim) {
-      player_left.position.setZ(lerp(3, 1, cutscene_landing.t))
-      player_right.position.setZ(lerp(-3, -1, cutscene_landing.t))
+      player_left.position.setZ(lerp(3, 1, cutscene_landing_left.t))
+    },
+    complete(_anim) {
+      let [v1_left, _v2_left] = variables(pos_left);
+      objectMap(sounds_left, (sounds, _key) => sounds.forEach(x => {
+        x.gain.value = 0;
+      }));
+
+      anime({
+        targets: cutscene_music_left,
+        t: 1,
+        easing: "linear",
+        delay: 0,
+        duration: DEBUG_SKIP_CUTSCENE ? 10 : 1200,
+        update(_anim) {
+          if (CONFIG.music_1 === "wave") {
+            sound_wave_1_left.setActive(true);
+            sound_wave_1_left.setValue(v1_left);
+          } else {
+            sound_wave_1_left.setActive(false);
+            // @ts-ignore
+            let cur_sounds_left = sounds_left[CONFIG.music_1];
+            if (cur_sounds_left.length > 0) {
+              let sound_index = v1_left * (cur_sounds_left.length - 1);
+              let sound_frac = sound_index % 1;
+              if (!CONFIG.fade_between_loops || Math.ceil(sound_index) === Math.floor(sound_index)) {
+                // edge case - no fade
+                cur_sounds_left[Math.floor(sound_index)].gain.value = cutscene_music_left.t;
+              } else {
+                cur_sounds_left[Math.ceil(sound_index)].gain.value = cutscene_music_left.t * sound_frac;
+                cur_sounds_left[Math.floor(sound_index)].gain.value = cutscene_music_left.t * (1 - sound_frac);
+              }
+            }
+          }
+        },
+      })
+    },
+  });
+  anime({
+    targets: cutscene_landing_right,
+    t: 1,
+    delay: DEBUG_SKIP_CUTSCENE ? 10 : 2400,
+    duration: DEBUG_SKIP_CUTSCENE ? 10 : 1000,
+    easing: "easeOutQuad",
+    update(_anim) {
+      player_right.position.setZ(lerp(-3, -1, cutscene_landing_right.t))
     },
     complete(_anim) {
       player_left.attach(camera_left);
       player_right.attach(camera_right);
       let initial_left_z = camera_left.position.z;
       let initial_right_z = camera_right.position.z;
+
+      let [v1_right, _v2_right] = variables(pos_right);
+      anime({
+        targets: cutscene_music_right,
+        t: 1,
+        easing: "linear",
+        delay: 0,
+        duration: DEBUG_SKIP_CUTSCENE ? 10 : 1200,
+        update(_anim) {
+          if (CONFIG.music_1 === "wave") {
+            sound_wave_1_right.setActive(true);
+            sound_wave_1_right.setValue(v1_right);
+          } else {
+            sound_wave_1_right.setActive(false);
+            // @ts-ignore
+            let cur_sounds_right = sounds_right[CONFIG.music_1];
+            if (cur_sounds_right.length > 0) {
+              let sound_index = v1_right * (cur_sounds_right.length - 1);
+              let sound_frac = sound_index % 1;
+              if (!CONFIG.fade_between_loops || Math.ceil(sound_index) === Math.floor(sound_index)) {
+                // edge case - no fade
+                cur_sounds_right[Math.floor(sound_index)].gain.value = cutscene_music_right.t;
+              } else {
+                cur_sounds_right[Math.ceil(sound_index)].gain.value = cutscene_music_right.t * sound_frac;
+                cur_sounds_right[Math.floor(sound_index)].gain.value = cutscene_music_right.t * (1 - sound_frac);
+              }
+            }
+          }
+        },
+      })
+
       anime({
         targets: cutscene_rotation,
         t: 1,
         easing: "easeInOutSine",
-        delay: DEBUG_SKIP_CUTSCENE ? 10 : 800,
+        delay: DEBUG_SKIP_CUTSCENE ? 10 : 1600,
         duration: DEBUG_SKIP_CUTSCENE ? 10 : 1200,
         update(_anim) {
           let dt = cutscene_rotation.t - cutscene_rotation.prev_t;
@@ -266,6 +370,19 @@ async function init_audio() {
         complete(_anim) {
           scene.attach(camera_left);
           scene.attach(camera_right);
+          anime({
+            targets: cutscene_text_state,
+            n_chars_shown: [0, text_mission_1.length],
+            easing: "linear",
+            duration: DEBUG_SKIP_CUTSCENE ? 10 : 3000,
+            update(_anim) {
+              ui_text_element.innerText = text_mission_1.slice(0, cutscene_text_state.n_chars_shown);
+            },
+            complete(_anim) {
+              ui_text_element.innerText += "\n(0/3)"
+            },
+          });
+
           GAME_STATE = "FIRST_TRIP"
         },
       })
@@ -275,7 +392,19 @@ async function init_audio() {
   requestAnimationFrame(every_frame);
 }
 
-const DEBUG_SKIP_CUTSCENE = true;
+let correctly_placed = 0;
+
+let cutscene_text_state = {
+  n_chars_shown: 0,
+};
+
+let text_mission_1 = "\nPress Space when the G-Waves are equal at both antipodes";
+let text_cutscene_2 = "\nSwitching to B-Waves...";
+// let text_mission_2 = "\nPress Space when the B-Waves are equal at both antipodes";
+
+const DEBUG_SKIP_CUTSCENE = false;
+const DEBUG_AUTO_PLACE_1 = false;
+const DEBUG_AUTO_PLACE_2 = false;
 
 let pos_left = new THREE.Vector3();
 let pos_right = new THREE.Vector3();
@@ -347,6 +476,8 @@ document.addEventListener("keyup", ev => {
 // let variable_2_left_element = document.querySelector<HTMLDivElement>("#variable_2_left")!
 // let variable_2_right_element = document.querySelector<HTMLDivElement>("#variable_2_right")!
 
+let ui_text_element = document.querySelector<HTMLDivElement>("#ui_text")!;
+
 let tmp_vec_1 = new THREE.Vector3(0, 0, 0);
 function rotateCamera(cam: THREE.Camera, v: THREE.Vector2) {
   tmp_vec_1.set(1, 0, 0);
@@ -372,31 +503,33 @@ function every_frame(cur_time: number) {
 
   ui_time += delta_time;
 
-  if (mouse_state.moving_any_camera) {
-    if (mouse_state.moving_left_camera) {
-      rotateCamera(camera_left, new THREE.Vector2(mouse_state.drag_delta.x * delta_time, mouse_state.drag_delta.y * delta_time));
-      rotateCamera(camera_right, new THREE.Vector2(mouse_state.drag_delta.x * delta_time, -mouse_state.drag_delta.y * delta_time));
-    } else {
-      rotateCamera(camera_right, new THREE.Vector2(mouse_state.drag_delta.x * delta_time, mouse_state.drag_delta.y * delta_time));
-      rotateCamera(camera_left, new THREE.Vector2(mouse_state.drag_delta.x * delta_time, -mouse_state.drag_delta.y * delta_time));
+  if (GAME_STATE !== "CUTSCENE_1") {
+    if (mouse_state.moving_any_camera) {
+      if (mouse_state.moving_left_camera) {
+        rotateCamera(camera_left, new THREE.Vector2(mouse_state.drag_delta.x * delta_time, mouse_state.drag_delta.y * delta_time));
+        rotateCamera(camera_right, new THREE.Vector2(mouse_state.drag_delta.x * delta_time, -mouse_state.drag_delta.y * delta_time));
+      } else {
+        rotateCamera(camera_right, new THREE.Vector2(mouse_state.drag_delta.x * delta_time, mouse_state.drag_delta.y * delta_time));
+        rotateCamera(camera_left, new THREE.Vector2(mouse_state.drag_delta.x * delta_time, -mouse_state.drag_delta.y * delta_time));
+      }
     }
-  }
 
-  let rot = Number(input_state.ccw) - Number(input_state.cw);
-  let movement_vector = new THREE.Vector2(
-    Number(input_state.right) - Number(input_state.left),
-    Number(input_state.up) - Number(input_state.down),
-  );
-  movement_vector.multiplyScalar(.5);
-  rot *= .5;
-  if (input_state.precision) {
-    rot *= .2;
-    movement_vector.multiplyScalar(.1);
-  }
+    let rot = Number(input_state.ccw) - Number(input_state.cw);
+    let movement_vector = new THREE.Vector2(
+      Number(input_state.right) - Number(input_state.left),
+      Number(input_state.up) - Number(input_state.down),
+    );
+    movement_vector.multiplyScalar(.5);
+    rot *= .5;
+    if (input_state.precision) {
+      rot *= .2;
+      movement_vector.multiplyScalar(.1);
+    }
 
-  players.rotateZ(rot * 4 * delta_time);
-  players.rotateY(- movement_vector.x * delta_time);
-  players.rotateX(- movement_vector.y * delta_time);
+    players.rotateZ(rot * 4 * delta_time);
+    players.rotateY(- movement_vector.x * delta_time);
+    players.rotateX(- movement_vector.y * delta_time);
+  }
 
   players.children[0].getWorldPosition(pos_left);
   players.children[1].getWorldPosition(pos_right);
@@ -406,107 +539,159 @@ function every_frame(cur_time: number) {
 
   let cur_sign_1 = Math.sign(v1_left - v1_right);
   let cur_sign_2 = Math.sign(v2_left - v2_right);
-  if (last_sign_1 !== null && last_sign_1 !== cur_sign_1) {
+  if (DEBUG_AUTO_PLACE_1 && last_sign_1 !== null && last_sign_1 !== cur_sign_1) {
     input_state.action_just_pressed = true;
   }
-  if (last_sign_2 !== null && last_sign_2 !== cur_sign_2) {
-    // input_state.action_just_pressed = true;
+  if (DEBUG_AUTO_PLACE_2 && last_sign_2 !== null && last_sign_2 !== cur_sign_2) {
+    input_state.action_just_pressed = true;
   }
   last_sign_1 = cur_sign_1;
   last_sign_2 = cur_sign_2;
 
-  if (input_state.action_just_pressed) {
+  if (input_state.action_just_pressed && (GAME_STATE === "FIRST_TRIP" || GAME_STATE === "SECOND_TRIP")) {
     input_state.action_just_pressed = false;
     const cur_markers = players.clone();
     cur_markers.children.forEach(x => x.scale.multiplyScalar(.5));
     scene.add(cur_markers);
-  }
 
-  objectMap(sounds_left, (sounds, _key) => sounds.forEach(x => {
-    x.gain.value = 0;
-  }));
-  if (CONFIG.music_1 === "wave") {
-    sound_wave_1_left.setActive(true);
-    sound_wave_1_left.setValue(v1_left);
-  } else {
-    sound_wave_1_left.setActive(false);
-    // @ts-ignore
-    let cur_sounds_left = sounds_left[CONFIG.music_1];
-    if (cur_sounds_left.length > 0) {
-      let sound_index = v1_left * (cur_sounds_left.length - 1);
-      let sound_frac = sound_index % 1;
-      if (!CONFIG.fade_between_loops || Math.ceil(sound_index) === Math.floor(sound_index)) {
-        // edge case - no fade
-        cur_sounds_left[Math.floor(sound_index)].gain.value = 1;
-      } else {
-        cur_sounds_left[Math.ceil(sound_index)].gain.value = sound_frac;
-        cur_sounds_left[Math.floor(sound_index)].gain.value = 1 - sound_frac;
+    if (Math.abs(v1_left - v1_right) < 0.05) {
+      correctly_placed += 1;
+      ui_text_element.innerText = `${text_mission_1}\n(${correctly_placed}/3)`;
+      if (correctly_placed == 3) {
+        anime({
+          targets: cutscene_text_state,
+          n_chars_shown: 0,
+          duration: 800,
+          easing: "linear",
+          update(_anim) {
+            ui_text_element.innerText = text_mission_1.slice(0, cutscene_text_state.n_chars_shown);
+          },
+          complete(_anim) {
+            anime({
+              targets: cutscene_text_state,
+              n_chars_shown: [0, text_cutscene_2.length],
+              easing: "linear",
+              duration: 2000,
+              update(_anim) {
+                ui_text_element.innerText = text_cutscene_2.slice(0, cutscene_text_state.n_chars_shown);
+              },
+              complete(_anim) {
+                // ui_text_element.innerText += "\n(0/3)"
+              },
+            });
+          },
+        })
       }
+    } else {
+      anime({
+        delay: 1000,
+        targets: cur_markers.children[0].scale,
+        x: .1,
+        y: .1,
+        z: .1,
+        duration: 1200,
+        complete(_anim) {
+          scene.remove(cur_markers);
+        },
+      })
+      anime({
+        delay: 1000,
+        targets: cur_markers.children[1].scale,
+        x: .1,
+        y: .1,
+        z: .1,
+        duration: 1200,
+      })
     }
   }
 
-  if (CONFIG.music_2 === "wave") {
-    sound_wave_2_left.setActive(true);
-    sound_wave_2_left.setValue(v2_left);
-  } else {
-    sound_wave_2_left.setActive(false);
-    if (CONFIG.music_2 !== "none" && CONFIG.music_2 !== CONFIG.music_1) {
+  if (GAME_STATE !== "CUTSCENE_1") {
+    objectMap(sounds_left, (sounds, _key) => sounds.forEach(x => {
+      x.gain.value = 0;
+    }));
+    if (CONFIG.music_1 === "wave") {
+      sound_wave_1_left.setActive(true);
+      sound_wave_1_left.setValue(v1_left);
+    } else {
+      sound_wave_1_left.setActive(false);
       // @ts-ignore
-      let cur_sounds_2_left = sounds_left[CONFIG.music_2];
-      if (cur_sounds_2_left.length > 0) {
-        let sound_index = v2_left * (cur_sounds_2_left.length - 1);
+      let cur_sounds_left = sounds_left[CONFIG.music_1];
+      if (cur_sounds_left.length > 0) {
+        let sound_index = v1_left * (cur_sounds_left.length - 1);
         let sound_frac = sound_index % 1;
         if (!CONFIG.fade_between_loops || Math.ceil(sound_index) === Math.floor(sound_index)) {
           // edge case - no fade
-          cur_sounds_2_left[Math.floor(sound_index)].gain.value = 1;
+          cur_sounds_left[Math.floor(sound_index)].gain.value = 1;
         } else {
-          cur_sounds_2_left[Math.ceil(sound_index)].gain.value = sound_frac;
-          cur_sounds_2_left[Math.floor(sound_index)].gain.value = 1 - sound_frac;
+          cur_sounds_left[Math.ceil(sound_index)].gain.value = sound_frac;
+          cur_sounds_left[Math.floor(sound_index)].gain.value = 1 - sound_frac;
         }
       }
     }
-  }
 
-  objectMap(sounds_right, (sounds, _key) => sounds.forEach(x => {
-    x.gain.value = 0;
-  }));
-  if (CONFIG.music_1 === "wave") {
-    sound_wave_1_right.setActive(true);
-    sound_wave_1_right.setValue(v1_right);
-  } else {
-    sound_wave_1_right.setActive(false);
-    // @ts-ignore
-    let cur_sounds_right = sounds_right[CONFIG.music_1];
-    if (cur_sounds_right.length > 0) {
-      let sound_index = v1_right * (cur_sounds_right.length - 1);
-      let sound_frac = sound_index % 1;
-      if (!CONFIG.fade_between_loops || Math.ceil(sound_index) === Math.floor(sound_index)) {
-        // edge case - no fade
-        cur_sounds_right[Math.floor(sound_index)].gain.value = 1;
-      } else {
-        cur_sounds_right[Math.ceil(sound_index)].gain.value = sound_frac;
-        cur_sounds_right[Math.floor(sound_index)].gain.value = 1 - sound_frac;
+    if (CONFIG.music_2 === "wave") {
+      sound_wave_2_left.setActive(true);
+      sound_wave_2_left.setValue(v2_left);
+    } else {
+      sound_wave_2_left.setActive(false);
+      if (CONFIG.music_2 !== "none" && CONFIG.music_2 !== CONFIG.music_1) {
+        // @ts-ignore
+        let cur_sounds_2_left = sounds_left[CONFIG.music_2];
+        if (cur_sounds_2_left.length > 0) {
+          let sound_index = v2_left * (cur_sounds_2_left.length - 1);
+          let sound_frac = sound_index % 1;
+          if (!CONFIG.fade_between_loops || Math.ceil(sound_index) === Math.floor(sound_index)) {
+            // edge case - no fade
+            cur_sounds_2_left[Math.floor(sound_index)].gain.value = 1;
+          } else {
+            cur_sounds_2_left[Math.ceil(sound_index)].gain.value = sound_frac;
+            cur_sounds_2_left[Math.floor(sound_index)].gain.value = 1 - sound_frac;
+          }
+        }
       }
     }
-  }
 
-  if (CONFIG.music_2 === "wave") {
-    sound_wave_2_right.setActive(true);
-    sound_wave_2_right.setValue(v2_right);
-  } else {
-    sound_wave_2_right.setActive(false);
-    if (CONFIG.music_2 !== "none" && CONFIG.music_2 !== CONFIG.music_1) {
+    objectMap(sounds_right, (sounds, _key) => sounds.forEach(x => {
+      x.gain.value = 0;
+    }));
+    if (CONFIG.music_1 === "wave") {
+      sound_wave_1_right.setActive(true);
+      sound_wave_1_right.setValue(v1_right);
+    } else {
+      sound_wave_1_right.setActive(false);
       // @ts-ignore
-      let cur_sounds_2_right = sounds_right[CONFIG.music_2];
-      if (cur_sounds_2_right.length > 0) {
-        let sound_index = v2_right * (cur_sounds_2_right.length - 1);
+      let cur_sounds_right = sounds_right[CONFIG.music_1];
+      if (cur_sounds_right.length > 0) {
+        let sound_index = v1_right * (cur_sounds_right.length - 1);
         let sound_frac = sound_index % 1;
         if (!CONFIG.fade_between_loops || Math.ceil(sound_index) === Math.floor(sound_index)) {
           // edge case - no fade
-          cur_sounds_2_right[Math.floor(sound_index)].gain.value = 1;
+          cur_sounds_right[Math.floor(sound_index)].gain.value = 1;
         } else {
-          cur_sounds_2_right[Math.ceil(sound_index)].gain.value = sound_frac;
-          cur_sounds_2_right[Math.floor(sound_index)].gain.value = 1 - sound_frac;
+          cur_sounds_right[Math.ceil(sound_index)].gain.value = sound_frac;
+          cur_sounds_right[Math.floor(sound_index)].gain.value = 1 - sound_frac;
+        }
+      }
+    }
+
+    if (CONFIG.music_2 === "wave") {
+      sound_wave_2_right.setActive(true);
+      sound_wave_2_right.setValue(v2_right);
+    } else {
+      sound_wave_2_right.setActive(false);
+      if (CONFIG.music_2 !== "none" && CONFIG.music_2 !== CONFIG.music_1) {
+        // @ts-ignore
+        let cur_sounds_2_right = sounds_right[CONFIG.music_2];
+        if (cur_sounds_2_right.length > 0) {
+          let sound_index = v2_right * (cur_sounds_2_right.length - 1);
+          let sound_frac = sound_index % 1;
+          if (!CONFIG.fade_between_loops || Math.ceil(sound_index) === Math.floor(sound_index)) {
+            // edge case - no fade
+            cur_sounds_2_right[Math.floor(sound_index)].gain.value = 1;
+          } else {
+            cur_sounds_2_right[Math.ceil(sound_index)].gain.value = sound_frac;
+            cur_sounds_2_right[Math.floor(sound_index)].gain.value = 1 - sound_frac;
+          }
         }
       }
     }
@@ -533,6 +718,13 @@ function every_frame(cur_time: number) {
   for (let x = 0; x < hw; x++) {
     let y = wave_ui((x - hw / 2), ui_time, v1_left);
 
+    if (GAME_STATE === "CUTSCENE_1") {
+      let x_helper = remap(Math.abs(x - hw / 2), 0, hw / 2, 2, .1);
+      x_helper = Math.pow(x_helper, 10);
+      x_helper = clamp(x_helper + cutscene_music_left.t * cutscene_music_left.t, 0, 1);
+      y *= cutscene_music_left.t * x_helper;
+    }
+
     y = remap(y, -2, 2, 0, h);
     if (x == 0) {
       ctx_ui.moveTo(x, y);
@@ -546,6 +738,13 @@ function every_frame(cur_time: number) {
   for (let x = 0; x < hw; x++) {
     let y = wave_ui((x - hw / 2), -ui_time, v1_right);
 
+    if (GAME_STATE === "CUTSCENE_1") {
+      let x_helper = remap(Math.abs(x - hw / 2), 0, hw / 2, 2, .1);
+      x_helper = Math.pow(x_helper, 10);
+      x_helper = clamp(x_helper + cutscene_music_right.t * cutscene_music_right.t, 0, 1);
+      y *= cutscene_music_right.t * x_helper;
+    }
+
     y = remap(y, -2, 2, 0, h);
     if (x == 0) {
       ctx_ui.moveTo(x + hw, y);
@@ -555,30 +754,8 @@ function every_frame(cur_time: number) {
   }
   ctx_ui.stroke();
 
-  const hm = 120; // half of middle
-  const middle_gradient = ctx_ui.createLinearGradient(hw - hm, 0, hw + hm, 0);
-  middle_gradient.addColorStop(0, "green");
-  middle_gradient.addColorStop(.02, "cyan");
-  middle_gradient.addColorStop(.04, "darkcyan");
-  middle_gradient.addColorStop(.08, "#757575");
-  middle_gradient.addColorStop(1 - .08, "#757575");
-  middle_gradient.addColorStop(1 - .04, "darkcyan");
-  middle_gradient.addColorStop(1 - .02, "cyan");
-  middle_gradient.addColorStop(1 - 0, "green");
   ctx_ui.fillStyle = middle_gradient;
   ctx_ui.fillRect(hw - hm, 0, hm * 2, canvas_ui.height);
-
-  const top_gradient = ctx_ui.createLinearGradient(0, 0, 0, 20);
-  top_gradient.addColorStop(0, "green");
-  top_gradient.addColorStop(0.4, "cyan");
-  top_gradient.addColorStop(0.6, "darkcyan");
-  top_gradient.addColorStop(1, "darkgreen");
-
-  const bottom_gradient = ctx_ui.createLinearGradient(0, canvas_ui.height - 20, 0, canvas_ui.height);
-  bottom_gradient.addColorStop(0, "green");
-  bottom_gradient.addColorStop(0.4, "cyan");
-  bottom_gradient.addColorStop(0.6, "darkcyan");
-  bottom_gradient.addColorStop(1, "darkgreen");
 
   ctx_ui.fillStyle = top_gradient
   ctx_ui.fillRect(0, 0, canvas_ui.width, 20);
@@ -664,11 +841,35 @@ function resizeRendererToDisplaySize(renderer: THREE.WebGLRenderer) {
   return needResize;
 }
 
-// function clamp(value: number, a: number, b: number) {
-//   if (value < a) return a;
-//   if (value > b) return b;
-//   return value;
-// }
+let hw = canvas_ui.width / 2;
+const hm = 120; // half of middle
+const middle_gradient = ctx_ui.createLinearGradient(hw - hm, 0, hw + hm, 0);
+middle_gradient.addColorStop(0, "green");
+middle_gradient.addColorStop(.02, "cyan");
+middle_gradient.addColorStop(.04, "darkcyan");
+middle_gradient.addColorStop(.08, "#757575");
+middle_gradient.addColorStop(1 - .08, "#757575");
+middle_gradient.addColorStop(1 - .04, "darkcyan");
+middle_gradient.addColorStop(1 - .02, "cyan");
+middle_gradient.addColorStop(1 - 0, "green");
+
+const top_gradient = ctx_ui.createLinearGradient(0, 0, 0, 20);
+top_gradient.addColorStop(0, "green");
+top_gradient.addColorStop(0.4, "cyan");
+top_gradient.addColorStop(0.6, "darkcyan");
+top_gradient.addColorStop(1, "darkgreen");
+
+const bottom_gradient = ctx_ui.createLinearGradient(0, canvas_ui.height - 20, 0, canvas_ui.height);
+bottom_gradient.addColorStop(0, "green");
+bottom_gradient.addColorStop(0.4, "cyan");
+bottom_gradient.addColorStop(0.6, "darkcyan");
+bottom_gradient.addColorStop(1, "darkgreen");
+
+function clamp(value: number, a: number, b: number) {
+  if (value < a) return a;
+  if (value > b) return b;
+  return value;
+}
 
 function remap(value: number, src_min: number, src_max: number, dst_min: number, dst_max: number): number {
   let t = inverseLerp(src_min, src_max, value);
