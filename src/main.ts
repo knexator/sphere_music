@@ -148,7 +148,7 @@ let sounds_right: Record<string, GainNode[]> = {};
 class FreqSound {
   gain_node: GainNode;
   oscillator_node: OscillatorNode;
-  
+
   constructor(ear: StereoPannerNode,
     public is_second_variable: boolean,
   ) {
@@ -159,7 +159,7 @@ class FreqSound {
     const gain_node = ear.context.createGain();
     gain_node.gain.value = 0.0;
     oscillator_node.connect(gain_node).connect(ear);
-    
+
     this.gain_node = gain_node;
     this.oscillator_node = oscillator_node;
   }
@@ -167,7 +167,7 @@ class FreqSound {
   setValue(value: number) {
     this.oscillator_node.frequency.value = this.is_second_variable ? (Math.pow(2, -.6 + value * .6) * 440) : (Math.pow(2, value * .6) * 440);
   }
-  
+
   setActive(val: boolean) {
     this.gain_node.gain.value = val ? .3 : 0;
   }
@@ -185,6 +185,8 @@ let cutscene_music_right = {
   t: 0,
 };
 
+let cutscene_2_state = { t: 0 };
+
 const gltfLoader = new GLTFLoader();
 const rover_model_promise = gltfLoader.loadAsync(model_rover_url);
 const sonar_model_promise = gltfLoader.loadAsync(model_sonar_url);
@@ -199,19 +201,18 @@ async function init_audio() {
 
   rover_model = await rover_model_promise;
   sonar_model = await sonar_model_promise;
-  
+
   player_left = rover_model.scene.clone();
   player_right = rover_model.scene.clone();
 
   player_left.position.setZ(1);
   player_right.position.setZ(-1);
   player_right.rotateX(Math.PI);
-  player_right.rotateY(Math.PI);
 
   players.add(player_left, player_right);
 
   const audio_ctx = new AudioContext();
-  
+
   const audio_sources = objectMap(audio_buffers, (buffers, _key) => buffers.map(buffer => {
     const source = audio_ctx.createBufferSource();
     source.buffer = buffer;
@@ -570,11 +571,14 @@ function every_frame(cur_time: number) {
     cur_marker_right.rotation.setFromQuaternion(tmp_quat_1);
     scene.add(cur_marker_right);
 
-
+    let glow_color = new THREE.Color(1, 0, 0);
     if (Math.abs(v1_left - v1_right) < 0.05) {
+      glow_color = new THREE.Color(0, 1, 0);
       correctly_placed += 1;
       ui_text_element.innerText = `${text_mission_1}\n(${correctly_placed}/3)`;
       if (correctly_placed == 3) {
+        GAME_STATE = "CUTSCENE_2"
+        // erase mission text
         anime({
           targets: cutscene_text_state,
           n_chars_shown: 0,
@@ -584,6 +588,7 @@ function every_frame(cur_time: number) {
             ui_text_element.innerText = text_mission_1.slice(0, cutscene_text_state.n_chars_shown);
           },
           complete(_anim) {
+            // cutscene text "switching to b"
             anime({
               targets: cutscene_text_state,
               n_chars_shown: [0, text_cutscene_2.length],
@@ -596,6 +601,15 @@ function every_frame(cur_time: number) {
                 // ui_text_element.innerText += "\n(0/3)"
               },
             });
+            anime({
+              targets: cutscene_2_state,
+              t: [0, 1],
+              duration: 1500,
+              easing: "linear",
+              complete(_anim) {
+                GAME_STATE = "SECOND_TRIP";
+              },
+            })
           },
         })
       }
@@ -623,6 +637,20 @@ function every_frame(cur_time: number) {
         },
       })
     }
+    // @ts-ignore
+    let cur_marker_left_mat = cur_marker_left.children[0].children[2].material.clone() as MeshStandardMaterial;
+    cur_marker_left_mat.emissive = glow_color;
+    cur_marker_left_mat.color = glow_color;
+    cur_marker_left_mat.emissiveIntensity = 1;
+    // @ts-ignore
+    cur_marker_left.children[0].children[2].material = cur_marker_left_mat
+    // @ts-ignore
+    let cur_marker_right_mat = cur_marker_right.children[0].children[2].material.clone() as MeshStandardMaterial;
+    cur_marker_right_mat.emissive = glow_color;
+    cur_marker_right_mat.color = glow_color;
+    cur_marker_right_mat.emissiveIntensity = 1;
+    // @ts-ignore
+    cur_marker_right.children[0].children[2].material = cur_marker_right_mat
   }
 
   if (GAME_STATE !== "CUTSCENE_1") {
@@ -728,6 +756,9 @@ function every_frame(cur_time: number) {
   // ctx_ui.fillStyle =
   // ctx_ui.fillRect
   ctx_ui.strokeStyle = "lime";
+  if (GAME_STATE === "SECOND_TRIP" || (GAME_STATE === "CUTSCENE_2" && cutscene_2_state.t >= .5)) {
+    ctx_ui.strokeStyle = "#FFC900";
+  }
 
   let hw = canvas_ui.width / 2;
   let h = canvas_ui.height;
@@ -736,13 +767,22 @@ function every_frame(cur_time: number) {
 
   ctx_ui.beginPath();
   for (let x = 0; x < hw; x++) {
-    let y = wave_ui((x - hw / 2), ui_time, v1_left);
+    let y = wave_1_ui((x - hw / 2), ui_time, v1_left);
 
     if (GAME_STATE === "CUTSCENE_1") {
       let x_helper = remap(Math.abs(x - hw / 2), 0, hw / 2, 2, .1);
       x_helper = Math.pow(x_helper, 10);
       x_helper = clamp(x_helper + cutscene_music_left.t * cutscene_music_left.t, 0, 1);
       y *= cutscene_music_left.t * x_helper;
+    } else if (GAME_STATE === "CUTSCENE_2") {
+      if (cutscene_2_state.t < .5) {
+        y *= 1 - cutscene_2_state.t * 2;
+      } else {
+        y = wave_2_ui((x - hw / 2), ui_time, v1_left);
+        y *= (cutscene_2_state.t - .5) * 2;
+      }
+    } else if (GAME_STATE === "SECOND_TRIP") {
+      y = wave_2_ui((x - hw / 2), ui_time, v1_left);
     }
 
     y = remap(y, -2, 2, 0, h);
@@ -756,13 +796,22 @@ function every_frame(cur_time: number) {
 
   ctx_ui.beginPath();
   for (let x = 0; x < hw; x++) {
-    let y = wave_ui((x - hw / 2), -ui_time, v1_right);
+    let y = wave_1_ui((x - hw / 2), -ui_time, v1_right);
 
     if (GAME_STATE === "CUTSCENE_1") {
       let x_helper = remap(Math.abs(x - hw / 2), 0, hw / 2, 2, .1);
       x_helper = Math.pow(x_helper, 10);
       x_helper = clamp(x_helper + cutscene_music_right.t * cutscene_music_right.t, 0, 1);
       y *= cutscene_music_right.t * x_helper;
+    } else if (GAME_STATE === "CUTSCENE_2") {
+      if (cutscene_2_state.t < .5) {
+        y *= 1 - cutscene_2_state.t * 2;
+      } else {
+        y = wave_2_ui((x - hw / 2), -ui_time, v1_right);
+        y *= (cutscene_2_state.t - .5) * 2;
+      }
+    } else if (GAME_STATE === "SECOND_TRIP") {
+      y = wave_2_ui((x - hw / 2), -ui_time, v1_right);
     }
 
     y = remap(y, -2, 2, 0, h);
@@ -834,13 +883,27 @@ function every_frame(cur_time: number) {
   requestAnimationFrame(every_frame);
 }
 
-function wave_ui(x: number, t: number, value: number) {
+function wave_1_ui(x: number, t: number, value: number) {
   let main_freq = remap(1 / (value + 1), .5, 1, .03, .25);
 
   let freqs = [main_freq, .12, .08];
   let phases = [0, .1, -.1];
   let speeds = [10, 15, 30];
   let amplitudes = [1, .3, .05];
+  let y = 0;
+  for (let k = 0; k < 3; k++) {
+    y += amplitudes[k] * Math.sin(x * freqs[k] + phases[k] + speeds[k] * t);
+  }
+  return y;
+}
+
+function wave_2_ui(x: number, t: number, value: number) {
+  let main_freq = remap(1 / (value + 1), .5, 1, .02, .20);
+
+  let freqs = [main_freq, .3, .1];
+  let phases = [0, .2, -.3];
+  let speeds = [8, 45, 20];
+  let amplitudes = [1, remap(value, 0, 1, .05, .2), .3];
   let y = 0;
   for (let k = 0; k < 3; k++) {
     y += amplitudes[k] * Math.sin(x * freqs[k] + phases[k] + speeds[k] * t);
