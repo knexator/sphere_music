@@ -387,8 +387,8 @@ async function init_audio() {
           camera_left.position.set(5 * Math.cos(cutscene_rotation.t * Math.PI / 2), 0, 5 * Math.sin(cutscene_rotation.t * Math.PI / 2) + initial_left_z * (1 - cutscene_rotation.t));
 
           camera_right.rotateY(dt * Math.PI / 2);
-          // x: -5, y: 0, z: -0.20 => x: 0, y: 0, z: -5
-          camera_right.position.set(-5 * Math.cos(cutscene_rotation.t * Math.PI / 2), 0, -5 * Math.sin(cutscene_rotation.t * Math.PI / 2) + initial_right_z * (1 - cutscene_rotation.t));
+          // x: 5, y: 0, z: 0.20 => x: 0, y: 0, z: 5
+          camera_right.position.set(5 * Math.cos(cutscene_rotation.t * Math.PI / 2), 0, 5 * Math.sin(cutscene_rotation.t * Math.PI / 2) + initial_right_z * (1 - cutscene_rotation.t));
         },
         complete(_anim) {
           scene.attach(camera_left);
