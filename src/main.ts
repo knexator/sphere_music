@@ -45,7 +45,7 @@ function variables(pos: THREE.Vector3): [number, number] {
   // var b = noise_data.data[offset + 2];
   // var a = noise_data.data[offset + 3];
   // return noise(pos.x + .2, pos.y + .3, pos.z + .4);
-  return [r, g];
+  return [g, r];
 }
 
 THREE.DefaultLoadingManager.onLoad = () => {
@@ -59,7 +59,7 @@ THREE.DefaultLoadingManager.onLoad = () => {
 const gui = new GUI();
 const CONFIG = {
   music_1: "test_21",
-  music_2: "none",
+  music_2: "acid",
   fade_between_loops: true,
 }
 gui.add(CONFIG, 'fade_between_loops');
@@ -415,15 +415,15 @@ async function init_audio() {
   requestAnimationFrame(every_frame);
 }
 
-let correctly_placed = 0;
+let n_correctly_placed = 0;
 
 let cutscene_text_state = {
   n_chars_shown: 0,
 };
 
 let text_mission_1 = "\nPress Space when the G-Waves are equal at both antipodes";
-let text_cutscene_2 = "\nSwitching to B-Waves...";
-// let text_mission_2 = "\nPress Space when the B-Waves are equal at both antipodes";
+let text_cutscene_2 = "\nSwitching to O-Waves...";
+let text_mission_2 = "\nPress Space when the O-Waves are equal at both antipodes";
 
 const DEBUG_SKIP_CUTSCENE = false;
 const DEBUG_AUTO_PLACE_1 = false;
@@ -572,46 +572,68 @@ function every_frame(cur_time: number) {
     scene.add(cur_marker_right);
 
     let glow_color = new THREE.Color(1, 0, 0);
-    if (Math.abs(v1_left - v1_right) < 0.05) {
+    let correct_1 = Math.abs(v1_left - v1_right) < 0.05;
+    let correct_2 = Math.abs(v2_left - v2_right) < 0.05;
+    let correct = (GAME_STATE === "FIRST_TRIP" && correct_1) || (GAME_STATE === "SECOND_TRIP" && correct_2);
+    if (correct) {
       glow_color = new THREE.Color(0, 1, 0);
-      correctly_placed += 1;
-      ui_text_element.innerText = `${text_mission_1}\n(${correctly_placed}/3)`;
-      if (correctly_placed == 3) {
-        GAME_STATE = "CUTSCENE_2"
-        // erase mission text
-        anime({
-          targets: cutscene_text_state,
-          n_chars_shown: 0,
-          duration: 800,
-          easing: "linear",
-          update(_anim) {
-            ui_text_element.innerText = text_mission_1.slice(0, cutscene_text_state.n_chars_shown);
-          },
-          complete(_anim) {
-            // cutscene text "switching to b"
-            anime({
-              targets: cutscene_text_state,
-              n_chars_shown: [0, text_cutscene_2.length],
-              easing: "linear",
-              duration: 2000,
-              update(_anim) {
-                ui_text_element.innerText = text_cutscene_2.slice(0, cutscene_text_state.n_chars_shown);
-              },
-              complete(_anim) {
-                // ui_text_element.innerText += "\n(0/3)"
-              },
-            });
-            anime({
-              targets: cutscene_2_state,
-              t: [0, 1],
-              duration: 1500,
-              easing: "linear",
-              complete(_anim) {
-                GAME_STATE = "SECOND_TRIP";
-              },
-            })
-          },
-        })
+      if (GAME_STATE === "SECOND_TRIP") {
+        glow_color = new THREE.Color(1, 179 / 255, 0);
+        // glow_color = new THREE.Color(100 / 255, 79 / 255, 0);
+      }
+      n_correctly_placed += 1;
+      ui_text_element.innerText = `${text_mission_1}\n(${n_correctly_placed}/3)`;
+      if (n_correctly_placed == 3) {
+        if (GAME_STATE === "FIRST_TRIP") {
+          GAME_STATE = "CUTSCENE_2"
+          // erase mission text
+          anime({
+            targets: cutscene_text_state,
+            n_chars_shown: 0,
+            duration: 800,
+            easing: "linear",
+            update(_anim) {
+              ui_text_element.innerText = text_mission_1.slice(0, cutscene_text_state.n_chars_shown);
+            },
+            complete(_anim) {
+              // cutscene text "switching to b"
+              anime({
+                targets: cutscene_text_state,
+                n_chars_shown: [0, text_cutscene_2.length],
+                easing: "linear",
+                duration: 2000,
+                update(_anim) {
+                  ui_text_element.innerText = text_cutscene_2.slice(0, cutscene_text_state.n_chars_shown);
+                },
+              });
+
+              anime({
+                targets: cutscene_2_state,
+                t: [0, 1],
+                delay: 1600,
+                duration: 1500,
+                easing: "linear",
+                complete(_anim) {
+                  GAME_STATE = "SECOND_TRIP";
+                  n_correctly_placed = 0;
+                  anime({
+                    targets: cutscene_text_state,
+                    n_chars_shown: [0, text_mission_2.length],
+                    easing: "linear",
+                    duration: DEBUG_SKIP_CUTSCENE ? 10 : 3000,
+                    update(_anim) {
+                      ui_text_element.innerText = text_mission_2.slice(0, cutscene_text_state.n_chars_shown);
+                    },
+                    complete(_anim) {
+                      ui_text_element.innerText += "\n(0/3)"
+                    },
+                  });
+                },
+              })
+            },
+          })
+        } else if (GAME_STATE === "SECOND_TRIP") {
+        }
       }
     } else {
       anime({
@@ -653,6 +675,25 @@ function every_frame(cur_time: number) {
     cur_marker_right.children[0].children[2].material = cur_marker_right_mat
   }
 
+  let var_1_sound = 0;
+  let var_2_sound = 0;
+  switch (GAME_STATE) {
+    case "FIRST_TRIP":
+      var_1_sound = 1;
+      break;
+    case "SECOND_TRIP":
+      var_2_sound = 1;
+      break;
+    case "CUTSCENE_2":
+      if (cutscene_2_state.t < .5) {
+        var_1_sound = 1 - cutscene_2_state.t * 2;
+      } else {
+        var_2_sound = (cutscene_2_state.t - .5) * 2;
+      }
+      break;
+    default:
+      break;
+  }
   if (GAME_STATE !== "CUTSCENE_1") {
     objectMap(sounds_left, (sounds, _key) => sounds.forEach(x => {
       x.gain.value = 0;
@@ -669,10 +710,10 @@ function every_frame(cur_time: number) {
         let sound_frac = sound_index % 1;
         if (!CONFIG.fade_between_loops || Math.ceil(sound_index) === Math.floor(sound_index)) {
           // edge case - no fade
-          cur_sounds_left[Math.floor(sound_index)].gain.value = 1;
+          cur_sounds_left[Math.floor(sound_index)].gain.value = var_1_sound;
         } else {
-          cur_sounds_left[Math.ceil(sound_index)].gain.value = sound_frac;
-          cur_sounds_left[Math.floor(sound_index)].gain.value = 1 - sound_frac;
+          cur_sounds_left[Math.ceil(sound_index)].gain.value = var_1_sound * sound_frac;
+          cur_sounds_left[Math.floor(sound_index)].gain.value = var_1_sound * (1 - sound_frac);
         }
       }
     }
@@ -690,10 +731,10 @@ function every_frame(cur_time: number) {
           let sound_frac = sound_index % 1;
           if (!CONFIG.fade_between_loops || Math.ceil(sound_index) === Math.floor(sound_index)) {
             // edge case - no fade
-            cur_sounds_2_left[Math.floor(sound_index)].gain.value = 1;
+            cur_sounds_2_left[Math.floor(sound_index)].gain.value = var_2_sound;
           } else {
-            cur_sounds_2_left[Math.ceil(sound_index)].gain.value = sound_frac;
-            cur_sounds_2_left[Math.floor(sound_index)].gain.value = 1 - sound_frac;
+            cur_sounds_2_left[Math.ceil(sound_index)].gain.value = var_2_sound * sound_frac;
+            cur_sounds_2_left[Math.floor(sound_index)].gain.value = var_2_sound * (1 - sound_frac);
           }
         }
       }
@@ -714,10 +755,10 @@ function every_frame(cur_time: number) {
         let sound_frac = sound_index % 1;
         if (!CONFIG.fade_between_loops || Math.ceil(sound_index) === Math.floor(sound_index)) {
           // edge case - no fade
-          cur_sounds_right[Math.floor(sound_index)].gain.value = 1;
+          cur_sounds_right[Math.floor(sound_index)].gain.value = var_1_sound;
         } else {
-          cur_sounds_right[Math.ceil(sound_index)].gain.value = sound_frac;
-          cur_sounds_right[Math.floor(sound_index)].gain.value = 1 - sound_frac;
+          cur_sounds_right[Math.ceil(sound_index)].gain.value = var_1_sound * sound_frac;
+          cur_sounds_right[Math.floor(sound_index)].gain.value = var_1_sound * (1 - sound_frac);
         }
       }
     }
@@ -735,10 +776,10 @@ function every_frame(cur_time: number) {
           let sound_frac = sound_index % 1;
           if (!CONFIG.fade_between_loops || Math.ceil(sound_index) === Math.floor(sound_index)) {
             // edge case - no fade
-            cur_sounds_2_right[Math.floor(sound_index)].gain.value = 1;
+            cur_sounds_2_right[Math.floor(sound_index)].gain.value = var_2_sound;
           } else {
-            cur_sounds_2_right[Math.ceil(sound_index)].gain.value = sound_frac;
-            cur_sounds_2_right[Math.floor(sound_index)].gain.value = 1 - sound_frac;
+            cur_sounds_2_right[Math.ceil(sound_index)].gain.value = var_2_sound * sound_frac;
+            cur_sounds_2_right[Math.floor(sound_index)].gain.value = var_2_sound * (1 - sound_frac);
           }
         }
       }
@@ -778,11 +819,11 @@ function every_frame(cur_time: number) {
       if (cutscene_2_state.t < .5) {
         y *= 1 - cutscene_2_state.t * 2;
       } else {
-        y = wave_2_ui((x - hw / 2), ui_time, v1_left);
+        y = wave_2_ui((x - hw / 2), ui_time, v2_left);
         y *= (cutscene_2_state.t - .5) * 2;
       }
     } else if (GAME_STATE === "SECOND_TRIP") {
-      y = wave_2_ui((x - hw / 2), ui_time, v1_left);
+      y = wave_2_ui((x - hw / 2), ui_time, v2_left);
     }
 
     y = remap(y, -2, 2, 0, h);
@@ -807,11 +848,11 @@ function every_frame(cur_time: number) {
       if (cutscene_2_state.t < .5) {
         y *= 1 - cutscene_2_state.t * 2;
       } else {
-        y = wave_2_ui((x - hw / 2), -ui_time, v1_right);
+        y = wave_2_ui((x - hw / 2), -ui_time, v2_right);
         y *= (cutscene_2_state.t - .5) * 2;
       }
     } else if (GAME_STATE === "SECOND_TRIP") {
-      y = wave_2_ui((x - hw / 2), -ui_time, v1_right);
+      y = wave_2_ui((x - hw / 2), -ui_time, v2_right);
     }
 
     y = remap(y, -2, 2, 0, h);
