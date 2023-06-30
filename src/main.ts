@@ -2,6 +2,9 @@ import * as THREE from 'three';
 import GUI from 'lil-gui';
 import { inverseLerp, lerp } from 'three/src/math/MathUtils.js';
 import anime from 'animejs';
+import { GLTF, GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import model_rover_url from "./models/rover.glb?url"
+import model_sonar_url from "./models/sonar.glb?url"
 
 const sound_counts = {
   acid: 8,
@@ -145,7 +148,7 @@ let sounds_right: Record<string, GainNode[]> = {};
 class FreqSound {
   gain_node: GainNode;
   oscillator_node: OscillatorNode;
-
+  
   constructor(ear: StereoPannerNode,
     public is_second_variable: boolean,
   ) {
@@ -156,7 +159,7 @@ class FreqSound {
     const gain_node = ear.context.createGain();
     gain_node.gain.value = 0.0;
     oscillator_node.connect(gain_node).connect(ear);
-
+    
     this.gain_node = gain_node;
     this.oscillator_node = oscillator_node;
   }
@@ -164,7 +167,7 @@ class FreqSound {
   setValue(value: number) {
     this.oscillator_node.frequency.value = this.is_second_variable ? (Math.pow(2, -.6 + value * .6) * 440) : (Math.pow(2, value * .6) * 440);
   }
-
+  
   setActive(val: boolean) {
     this.gain_node.gain.value = val ? .3 : 0;
   }
@@ -182,14 +185,33 @@ let cutscene_music_right = {
   t: 0,
 };
 
+const gltfLoader = new GLTFLoader();
+const rover_model_promise = gltfLoader.loadAsync(model_rover_url);
+const sonar_model_promise = gltfLoader.loadAsync(model_sonar_url);
+let rover_model: GLTF;
+let sonar_model: GLTF;
+
 async function init_audio() {
   const audio_buffers: Record<string, AudioBuffer[]> = {};
   for (const [key, value] of Object.entries(audio_promises)) {
     audio_buffers[key] = await Promise.all(value);
   }
 
-  const audio_ctx = new AudioContext();
+  rover_model = await rover_model_promise;
+  sonar_model = await sonar_model_promise;
+  
+  player_left = rover_model.scene.clone();
+  player_right = rover_model.scene.clone();
 
+  player_left.position.setZ(1);
+  player_right.position.setZ(-1);
+  player_right.rotateX(Math.PI);
+  player_right.rotateY(Math.PI);
+
+  players.add(player_left, player_right);
+
+  const audio_ctx = new AudioContext();
+  
   const audio_sources = objectMap(audio_buffers, (buffers, _key) => buffers.map(buffer => {
     const source = audio_ctx.createBufferSource();
     source.buffer = buffer;
@@ -410,25 +432,9 @@ let pos_left = new THREE.Vector3();
 let pos_right = new THREE.Vector3();
 const players = new THREE.Object3D();
 scene.add(players);
-// {
-const players_geo = new THREE.PlaneGeometry(.1, .1);
-const player_left_mat = new THREE.MeshPhongMaterial({ color: "#FFD524" });
-const player_right_mat = new THREE.MeshPhongMaterial({ color: "#55185D" });
-player_right_mat.side = THREE.BackSide;
 
-const player_left = new THREE.Mesh(players_geo, player_left_mat);
-const player_right = new THREE.Mesh(players_geo, player_right_mat);
-
-player_left.add(new THREE.AxesHelper(.1));
-player_right.add(new THREE.AxesHelper(.1));
-
-player_left.position.setZ(1);
-player_right.position.setZ(-1);
-player_right.rotateX(Math.PI);
-player_right.rotateY(Math.PI);
-
-players.add(player_left, player_right);
-// }
+let player_left: THREE.Object3D;
+let player_right: THREE.Object3D;
 
 let input_state = {
   left: false,
@@ -478,7 +484,8 @@ document.addEventListener("keyup", ev => {
 
 let ui_text_element = document.querySelector<HTMLDivElement>("#ui_text")!;
 
-let tmp_vec_1 = new THREE.Vector3(0, 0, 0);
+let tmp_vec_1 = new THREE.Vector3();
+let tmp_quat_1 = new THREE.Quaternion();
 function rotateCamera(cam: THREE.Camera, v: THREE.Vector2) {
   tmp_vec_1.set(1, 0, 0);
   tmp_vec_1.applyQuaternion(cam.quaternion);
@@ -550,9 +557,19 @@ function every_frame(cur_time: number) {
 
   if (input_state.action_just_pressed && (GAME_STATE === "FIRST_TRIP" || GAME_STATE === "SECOND_TRIP")) {
     input_state.action_just_pressed = false;
-    const cur_markers = players.clone();
-    cur_markers.children.forEach(x => x.scale.multiplyScalar(.5));
-    scene.add(cur_markers);
+
+    const cur_marker_left = sonar_model.scene.clone();
+    player_left.getWorldPosition(cur_marker_left.position);
+    player_left.getWorldQuaternion(tmp_quat_1);
+    cur_marker_left.rotation.setFromQuaternion(tmp_quat_1);
+    scene.add(cur_marker_left);
+
+    const cur_marker_right = sonar_model.scene.clone();
+    player_right.getWorldPosition(cur_marker_right.position);
+    player_right.getWorldQuaternion(tmp_quat_1);
+    cur_marker_right.rotation.setFromQuaternion(tmp_quat_1);
+    scene.add(cur_marker_right);
+
 
     if (Math.abs(v1_left - v1_right) < 0.05) {
       correctly_placed += 1;
@@ -585,22 +602,25 @@ function every_frame(cur_time: number) {
     } else {
       anime({
         delay: 1000,
-        targets: cur_markers.children[0].scale,
+        targets: cur_marker_left.scale,
         x: .1,
         y: .1,
         z: .1,
         duration: 1200,
         complete(_anim) {
-          scene.remove(cur_markers);
+          scene.remove(cur_marker_left);
         },
       })
       anime({
         delay: 1000,
-        targets: cur_markers.children[1].scale,
+        targets: cur_marker_right.scale,
         x: .1,
         y: .1,
         z: .1,
         duration: 1200,
+        complete(_anim) {
+          scene.remove(cur_marker_right);
+        },
       })
     }
   }
