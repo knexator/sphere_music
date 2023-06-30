@@ -405,9 +405,6 @@ async function init_audio() {
             update(_anim) {
               ui_text_element.innerText = text_mission_1.slice(0, cutscene_text_state.n_chars_shown);
             },
-            complete(_anim) {
-              ui_text_element.innerText += "\n(0/3)"
-            },
           });
 
           GAME_STATE = "FIRST_TRIP"
@@ -425,10 +422,10 @@ let cutscene_text_state = {
   n_chars_shown: 0,
 };
 
-let text_mission_1 = "Mission 1/3:\nPress Space when the G-Waves are equal at both antipodes";
-let text_waiting_2 = "\nGood job! Visit the Reconfiguring Beam to alter your detectors";
+let text_mission_1 = "Mission 1/3:\nPress Space when the G-Waves\nare equal at both antipodes";
+let text_waiting_2 = "Good job!\nVisit the Reconfiguring Beam\nto alter your detectors";
 let text_cutscene_2 = "\nSwitching to B-Waves...";
-let text_mission_2 = "Mission 2/3:\nPress Space when the B-Waves are equal at both antipodes";
+let text_mission_2 = "Mission 2/3:\nPress Space when the B-Waves\nare equal at both antipodes";
 
 const DEBUG_SKIP_CUTSCENE = false;
 const DEBUG_AUTO_PLACE_1 = false;
@@ -592,8 +589,7 @@ function every_frame(cur_time: number) {
         glow_color = new THREE.Color(0, 1, 1);
       }
       n_correctly_placed += 1;
-      ui_text_element.innerText = `${text_mission_1}\n(${n_correctly_placed}/3)`;
-      if (n_correctly_placed == 3) {
+      if (n_correctly_placed == 1) {
         if (GAME_STATE === "FIRST_TRIP") {
           GAME_STATE = "WAITING_2";
           // erase mission text
@@ -684,9 +680,17 @@ function every_frame(cur_time: number) {
         targets: beam_hiding_state,
         t: [0, 1],
         duration: 800,
+        // todo: fix beam dissapear animation
         update(_anim) {
           let s = 1 - beam_hiding_state.t;
-          beams.children.forEach(beam => beam.scale.set(s, s, s));
+          beams.children.forEach(beam => {
+            beam.scale.set(s, s, s);
+            // tmp_vec_1.set(0, 1, 0);
+            // tmp_vec_1.applyQuaternion(beam.quaternion);
+            // beam.position.addScaledVector(tmp_vec_1, .0001);
+          });
+
+          beams.children.forEach(beam => beam.position.add(BEAM_POS_1));
         },
         complete(_anim) {
           while (beams.children.length > 0) {
@@ -723,9 +727,6 @@ function every_frame(cur_time: number) {
             duration: DEBUG_SKIP_CUTSCENE ? 10 : 3000,
             update(_anim) {
               ui_text_element.innerText = text_mission_2.slice(0, cutscene_text_state.n_chars_shown);
-            },
-            complete(_anim) {
-              ui_text_element.innerText += "\n(0/3)"
             },
           });
         },
