@@ -5,6 +5,7 @@ import anime from 'animejs';
 import { GLTF, GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import model_rover_url from "./models/rover.glb?url"
 import model_sonar_url from "./models/sonar.glb?url"
+import model_beam_url from "./models/beam.glb?url"
 
 const sound_counts = {
   acid: 8,
@@ -13,7 +14,7 @@ const sound_counts = {
   test_21: 6,
 };
 
-let GAME_STATE: "LOADING" | "PRESS_TO_START" | "CUTSCENE_1" | "FIRST_TRIP" | "CUTSCENE_2" | "SECOND_TRIP" | "THIRD_TRIP" = "LOADING";
+let GAME_STATE: "LOADING" | "PRESS_TO_START" | "CUTSCENE_1" | "FIRST_TRIP" | "WAITING_2" | "CUTSCENE_2" | "SECOND_TRIP" | "THIRD_TRIP" = "LOADING";
 
 const sound_urls = objectMap(sound_counts, (count, key) => fromCount(count, k => {
   return new URL(`./music_${key}/${k + 1}.mp3`, import.meta.url).href
@@ -98,7 +99,7 @@ let mouse_state = {
   drag_delta: new THREE.Vector2(0, 0),
 }
 window.addEventListener("pointerdown", ev => {
-  if (GAME_STATE === "FIRST_TRIP" || GAME_STATE === "SECOND_TRIP" || GAME_STATE === "THIRD_TRIP") {
+  if (GAME_STATE !== "CUTSCENE_1") {
     mouse_state.moving_any_camera = true;
     mouse_state.moving_left_camera = .5 > ev.offsetX / renderer.domElement.clientWidth;
   }
@@ -113,7 +114,7 @@ window.addEventListener("pointerup", _ev => {
 // ambient
 {
   const color = 0xFFFFFF;
-  const intensity = .1;
+  const intensity = .2;
   const light = new THREE.AmbientLight(color, intensity);
   scene.add(light);
 }
@@ -190,8 +191,10 @@ let cutscene_2_state = { t: 0 };
 const gltfLoader = new GLTFLoader();
 const rover_model_promise = gltfLoader.loadAsync(model_rover_url);
 const sonar_model_promise = gltfLoader.loadAsync(model_sonar_url);
+const beam_model_promise = gltfLoader.loadAsync(model_beam_url);
 let rover_model: GLTF;
 let sonar_model: GLTF;
+let beam_model: GLTF;
 
 async function init_audio() {
   const audio_buffers: Record<string, AudioBuffer[]> = {};
@@ -201,6 +204,7 @@ async function init_audio() {
 
   rover_model = await rover_model_promise;
   sonar_model = await sonar_model_promise;
+  beam_model = await beam_model_promise;
 
   player_left = rover_model.scene.clone();
   player_right = rover_model.scene.clone();
@@ -421,9 +425,10 @@ let cutscene_text_state = {
   n_chars_shown: 0,
 };
 
-let text_mission_1 = "\nPress Space when the G-Waves are equal at both antipodes";
-let text_cutscene_2 = "\nSwitching to O-Waves...";
-let text_mission_2 = "\nPress Space when the O-Waves are equal at both antipodes";
+let text_mission_1 = "Mission 1/3:\nPress Space when the G-Waves are equal at both antipodes";
+let text_waiting_2 = "\nGood job! Visit the Reconfiguring Beam to alter your detectors";
+let text_cutscene_2 = "\nSwitching to B-Waves...";
+let text_mission_2 = "Mission 2/3:\nPress Space when the B-Waves are equal at both antipodes";
 
 const DEBUG_SKIP_CUTSCENE = false;
 const DEBUG_AUTO_PLACE_1 = false;
@@ -433,6 +438,9 @@ let pos_left = new THREE.Vector3();
 let pos_right = new THREE.Vector3();
 const players = new THREE.Object3D();
 scene.add(players);
+
+const beams = new THREE.Object3D();
+scene.add(beams);
 
 let player_left: THREE.Object3D;
 let player_right: THREE.Object3D;
@@ -497,6 +505,9 @@ function rotateCamera(cam: THREE.Camera, v: THREE.Vector2) {
   cam.up.copy(tmp_vec_1);
   cam.lookAt(0, 0, 0);
 }
+
+const BEAM_POS_1 = new THREE.Vector3(1, 0, 0);
+const BEAM_POS_2 = new THREE.Vector3(1, 0, 0);
 
 let last_sign_1: number | null = null;
 let last_sign_2: number | null = null;
@@ -578,14 +589,13 @@ function every_frame(cur_time: number) {
     if (correct) {
       glow_color = new THREE.Color(0, 1, 0);
       if (GAME_STATE === "SECOND_TRIP") {
-        glow_color = new THREE.Color(1, 179 / 255, 0);
-        // glow_color = new THREE.Color(100 / 255, 79 / 255, 0);
+        glow_color = new THREE.Color(0, 1, 1);
       }
       n_correctly_placed += 1;
       ui_text_element.innerText = `${text_mission_1}\n(${n_correctly_placed}/3)`;
       if (n_correctly_placed == 3) {
         if (GAME_STATE === "FIRST_TRIP") {
-          GAME_STATE = "CUTSCENE_2"
+          GAME_STATE = "WAITING_2";
           // erase mission text
           anime({
             targets: cutscene_text_state,
@@ -596,40 +606,26 @@ function every_frame(cur_time: number) {
               ui_text_element.innerText = text_mission_1.slice(0, cutscene_text_state.n_chars_shown);
             },
             complete(_anim) {
-              // cutscene text "switching to b"
+              // spawn the beam
+              let beam_left = beam_model.scene.clone();
+              beam_left.position.copy(BEAM_POS_1);
+              beam_left.lookAt(0, 0, 0);
+              beam_left.rotateX(Math.PI);
+              let beam_right = beam_left.clone();
+              beam_right.position.multiplyScalar(-1);
+              beam_right.rotateX(Math.PI);
+              beams.add(beam_left, beam_right);
+
+              // waiting text "go to the beam"
               anime({
                 targets: cutscene_text_state,
-                n_chars_shown: [0, text_cutscene_2.length],
+                n_chars_shown: [0, text_waiting_2.length],
                 easing: "linear",
-                duration: 2000,
+                duration: 1400,
                 update(_anim) {
-                  ui_text_element.innerText = text_cutscene_2.slice(0, cutscene_text_state.n_chars_shown);
+                  ui_text_element.innerText = text_waiting_2.slice(0, cutscene_text_state.n_chars_shown);
                 },
               });
-
-              anime({
-                targets: cutscene_2_state,
-                t: [0, 1],
-                delay: 1600,
-                duration: 1500,
-                easing: "linear",
-                complete(_anim) {
-                  GAME_STATE = "SECOND_TRIP";
-                  n_correctly_placed = 0;
-                  anime({
-                    targets: cutscene_text_state,
-                    n_chars_shown: [0, text_mission_2.length],
-                    easing: "linear",
-                    duration: DEBUG_SKIP_CUTSCENE ? 10 : 3000,
-                    update(_anim) {
-                      ui_text_element.innerText = text_mission_2.slice(0, cutscene_text_state.n_chars_shown);
-                    },
-                    complete(_anim) {
-                      ui_text_element.innerText += "\n(0/3)"
-                    },
-                  });
-                },
-              })
             },
           })
         } else if (GAME_STATE === "SECOND_TRIP") {
@@ -675,10 +671,75 @@ function every_frame(cur_time: number) {
     cur_marker_right.children[0].children[2].material = cur_marker_right_mat
   }
 
+  if (GAME_STATE === "WAITING_2") {
+    player_left.getWorldPosition(tmp_vec_1);
+    let dist_left = tmp_vec_1.distanceTo(BEAM_POS_1);
+    player_right.getWorldPosition(tmp_vec_1);
+    let dist_right = tmp_vec_1.distanceTo(BEAM_POS_1);
+    if (Math.min(dist_left, dist_right) < .07) {
+      GAME_STATE = "CUTSCENE_2";
+      // hide the beam
+      let beam_hiding_state = { t: 0 };
+      anime({
+        targets: beam_hiding_state,
+        t: [0, 1],
+        duration: 800,
+        update(_anim) {
+          let s = 1 - beam_hiding_state.t;
+          beams.children.forEach(beam => beam.scale.set(s, s, s));
+        },
+        complete(_anim) {
+          while (beams.children.length > 0) {
+            beams.remove(beams.children[0])
+          }
+        },
+      })
+
+      // cutscene text "switching to o-waves"
+      anime({
+        targets: cutscene_text_state,
+        n_chars_shown: [0, text_cutscene_2.length],
+        easing: "linear",
+        duration: 1200,
+        update(_anim) {
+          ui_text_element.innerText = text_cutscene_2.slice(0, cutscene_text_state.n_chars_shown);
+        },
+      });
+
+      // change waves
+      anime({
+        targets: cutscene_2_state,
+        t: [0, 1],
+        delay: 1600,
+        duration: 1500,
+        easing: "linear",
+        complete(_anim) {
+          GAME_STATE = "SECOND_TRIP";
+          n_correctly_placed = 0;
+          anime({
+            targets: cutscene_text_state,
+            n_chars_shown: [0, text_mission_2.length],
+            easing: "linear",
+            duration: DEBUG_SKIP_CUTSCENE ? 10 : 3000,
+            update(_anim) {
+              ui_text_element.innerText = text_mission_2.slice(0, cutscene_text_state.n_chars_shown);
+            },
+            complete(_anim) {
+              ui_text_element.innerText += "\n(0/3)"
+            },
+          });
+        },
+      })
+    }
+  }
+
   let var_1_sound = 0;
   let var_2_sound = 0;
   switch (GAME_STATE) {
     case "FIRST_TRIP":
+      var_1_sound = 1;
+      break;
+    case "WAITING_2":
       var_1_sound = 1;
       break;
     case "SECOND_TRIP":
@@ -798,7 +859,7 @@ function every_frame(cur_time: number) {
   // ctx_ui.fillRect
   ctx_ui.strokeStyle = "lime";
   if (GAME_STATE === "SECOND_TRIP" || (GAME_STATE === "CUTSCENE_2" && cutscene_2_state.t >= .5)) {
-    ctx_ui.strokeStyle = "#FFC900";
+    ctx_ui.strokeStyle = "cyan";
   }
 
   let hw = canvas_ui.width / 2;
