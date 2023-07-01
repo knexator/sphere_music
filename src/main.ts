@@ -439,18 +439,18 @@ let cutscene_text_state = {
   n_chars_shown: 0,
 };
 
-let text_mission_1 = "Mission 1/3:\nFind a spot where the G-Waves\nare equal at both antipodes";
+let text_mission_1 = "Mission 1/3:\nPress Space when the G-Waves\nare equal at both antipodes";
 let text_waiting_2 = "Good job!\nVisit the Reconfiguring Beam\nto alter your detectors";
 let text_cutscene_2 = "\nSwitching to B-Waves...";
-let text_mission_2 = "Mission 2/3:\nFind a spot where the B-Waves\nare equal at both antipodes";
+let text_mission_2 = "Mission 2/3:\nPress Space when the B-Waves\nare equal at both antipodes";
 // let text_cutscene_3 = "Good job!\nProviding the last Reconfiguring Beam...\nUse it wisely, only once you're prepared.";
 // let text_mission_3 = "Mission 3/3:\nPress Space when both\nG-Waves and B-Waves\nare equal at both antipodes";
-let text_mission_3 = "Mission 3/3:\nPress Space when both\nG-Waves and B-Waves\nare equal at both antipodes.\n\n\n\n\n\n\n\n\n\n\nThis is the last Reconfiguring Beam.\nUse it wisely.";
+let text_mission_3 = "Mission 3/3:\nPress Enter when both\nG-Waves and B-Waves\nare equal at both antipodes.\n\n\n\n\n\n\n\n\n\n\nThis is the last Reconfiguring Beam.\nUse it wisely.";
 let text_cutscene_end = "Congratulations!\nYou win!";
 
 const DEBUG_SKIP_CUTSCENE = false;
-const DEBUG_AUTO_PLACE_1 = true;
-const DEBUG_AUTO_PLACE_2 = true;
+const DEBUG_AUTO_PLACE_1 = false;
+const DEBUG_AUTO_PLACE_2 = false;
 
 let pos_left = new THREE.Vector3();
 let pos_right = new THREE.Vector3();
@@ -483,8 +483,8 @@ const input_to_keycode = {
   left: "KeyE",
   right: "KeyQ",
   precision: "ShiftLeft ShiftRight".split(' '),
-  // action_just_pressed: "Space",
-  final_action_just_pressed: "Space",
+  action_just_pressed: "Space",
+  final_action_just_pressed: "Enter",
 };
 
 document.addEventListener("keydown", ev => {
