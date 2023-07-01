@@ -26,16 +26,28 @@ const loading_div = document.querySelector<HTMLDivElement>("#loading")!;
 let helper_canvas = document.createElement('canvas');
 let helper_ctx = helper_canvas.getContext("2d")!;
 
+let noise_ready = false;
 const noise_img = document.querySelector<HTMLImageElement>("#noise_img")!;
 var noise_data: ImageData;
-noise_img.addEventListener("load", _ev => {
+function loadNoise() {
   helper_canvas.width = noise_img.width;
   helper_canvas.height = noise_img.height;
   helper_ctx.drawImage(noise_img, 0, 0);
   noise_data = helper_ctx.getImageData(0, 0, noise_img.width, noise_img.height);
-});
+  noise_ready = true;
+}
+if (noise_img.complete) {
+  loadNoise();
+} else {
+  noise_img.addEventListener("load", _ev => {
+    loadNoise();
+  });
+}
 
 function variables(pos: THREE.Vector3): [number, number] {
+  if (!noise_ready) {
+    return [.5, .5];
+  }
   let ang_x = Math.atan2(pos.z, pos.x);
   let ang_y = Math.atan2(pos.y, Math.sqrt(pos.x * pos.x + pos.z * pos.z));
   let u = remap(ang_x, -Math.PI, Math.PI, 0, 1);
