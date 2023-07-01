@@ -27,10 +27,13 @@ let helper_canvas = document.createElement('canvas');
 let helper_ctx = helper_canvas.getContext("2d")!;
 
 const noise_img = document.querySelector<HTMLImageElement>("#noise_img")!;
-helper_canvas.width = noise_img.width;
-helper_canvas.height = noise_img.height;
-helper_ctx.drawImage(noise_img, 0, 0);
-var noise_data = helper_ctx.getImageData(0, 0, noise_img.width, noise_img.height);
+var noise_data: ImageData;
+noise_img.addEventListener("load", _ev => {
+  helper_canvas.width = noise_img.width;
+  helper_canvas.height = noise_img.height;
+  helper_ctx.drawImage(noise_img, 0, 0);
+  noise_data = helper_ctx.getImageData(0, 0, noise_img.width, noise_img.height);
+});
 
 function variables(pos: THREE.Vector3): [number, number] {
   let ang_x = Math.atan2(pos.z, pos.x);
@@ -434,8 +437,8 @@ let text_mission_3 = "Mission 3/3:\nPress Space when both\nG-Waves and B-Waves\n
 let text_cutscene_end = "Congratulations!\nYou win!";
 
 const DEBUG_SKIP_CUTSCENE = false;
-const DEBUG_AUTO_PLACE_1 = true;
-const DEBUG_AUTO_PLACE_2 = true;
+const DEBUG_AUTO_PLACE_1 = false;
+const DEBUG_AUTO_PLACE_2 = false;
 
 let pos_left = new THREE.Vector3();
 let pos_right = new THREE.Vector3();
