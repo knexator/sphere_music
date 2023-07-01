@@ -1005,9 +1005,6 @@ function every_frame(cur_time: number) {
   }
 
   ctx_ui.clearRect(0, 0, canvas_ui.width, canvas_ui.height);
-  const bg_gradient = ctx_ui.createLinearGradient(0, 0, 0, canvas_ui.height);
-  bg_gradient.addColorStop(0, "#0B91C6");
-  bg_gradient.addColorStop(1, "#0F4DA4");
   ctx_ui.fillStyle = bg_gradient;
   ctx_ui.fillRect(0, 0, canvas_ui.width, canvas_ui.height);
 
@@ -1021,6 +1018,7 @@ function every_frame(cur_time: number) {
 
   let hw = canvas_ui.width / 2;
   let h = canvas_ui.height;
+  let hh = h / 2;
 
   ctx_ui.lineWidth = 3;
 
@@ -1082,31 +1080,119 @@ function every_frame(cur_time: number) {
   }
   ctx_ui.stroke();
 
-  ctx_ui.fillStyle = middle_gradient;
-  ctx_ui.fillRect(hw - hm, 0, hm * 2, canvas_ui.height);
-
   ctx_ui.fillStyle = top_gradient
   ctx_ui.fillRect(0, 0, canvas_ui.width, 20);
 
   ctx_ui.fillStyle = bottom_gradient
   ctx_ui.fillRect(0, canvas_ui.height - 20, canvas_ui.width, 20);
 
+  // middle_gradient = ctx_ui.createLinearGradient(hw - hm, 0, hw + hm, 0);
+  // middle_gradient.addColorStop(0, "green");
+  // middle_gradient.addColorStop(.02, "cyan");
+  // middle_gradient.addColorStop(.04, "darkcyan");
+  // middle_gradient.addColorStop(.08, "#757575");
+  // middle_gradient.addColorStop(1 - .08, "#757575");
+  // middle_gradient.addColorStop(1 - .04, "darkcyan");
+  // middle_gradient.addColorStop(1 - .02, "cyan");
+  // middle_gradient.addColorStop(1 - 0, "green");
 
-  // temp, to be changed to sounds
-  // let col_v1_left = new THREE.Color();
-  // col_v1_left.setHSL(v1_left, 1, .5);
-  // let col_v1_right = new THREE.Color();
-  // col_v1_right.setHSL(v1_right, 1, .5);
+  // ctx_ui.fillStyle = middle_gradient;
+  // ctx_ui.fillRect(hw - hm * .75, 0, hm * 1.5, canvas_ui.height);
 
-  // let col_v2_left = new THREE.Color();
-  // col_v2_left.setHSL(v2_left, 1, .5);
-  // let col_v2_right = new THREE.Color();
-  // col_v2_right.setHSL(v2_right, 1, .5);
+  ctx_ui.fillStyle = middle_gradient;
+  ctx_ui.fillRect(hw - hm, 0, hm * 2, canvas_ui.height);
 
-  // variable_2_left_element.innerText = v2_left.toFixed(4);
-  // variable_2_right_element.innerText = v2_right.toFixed(4);
-  // variable_2_left_element.style.backgroundColor = "#" + col_v2_left.getHexString();
-  // variable_2_right_element.style.backgroundColor = "#" + col_v2_right.getHexString();
+  let gauge_left_gradient = ctx_ui.createRadialGradient(hw - hm, hh, 0, hw - hm, hh, hh);
+  gauge_left_gradient.addColorStop(0, "#0C7DB4");
+  gauge_left_gradient.addColorStop(.9, "#0B91C6");
+  gauge_left_gradient.addColorStop(.91, "green");
+  gauge_left_gradient.addColorStop(.95, "cyan");
+  gauge_left_gradient.addColorStop(1, "darkcyan");
+
+  gauge_right_gradient = ctx_ui.createRadialGradient(hw + hm, hh, 0, hw + hm, hh, hh);
+  gauge_right_gradient.addColorStop(0, "#0C7DB4");
+  gauge_right_gradient.addColorStop(.9, "#0B91C6");
+  gauge_right_gradient.addColorStop(.91, "green");
+  gauge_right_gradient.addColorStop(.95, "cyan");
+  gauge_right_gradient.addColorStop(1, "darkcyan");
+
+  ctx_ui.beginPath();
+  ctx_ui.arc(hw - hm, hh, hh, Math.PI / 2, -Math.PI / 2, false);
+  ctx_ui.fillStyle = gauge_left_gradient;
+  ctx_ui.fill();
+
+  ctx_ui.beginPath();
+  ctx_ui.arc(hw + hm, hh, hh, -Math.PI / 2, Math.PI / 2, false);
+  ctx_ui.fillStyle = gauge_right_gradient;
+  ctx_ui.fill();
+  // ctx_ui.stroke();
+
+  let wave_1_strength = 1;
+  let wave_2_strength = 0;
+  if (GAME_STATE === "SECOND_TRIP" || GAME_STATE === "THIRD_TRIP_A" || ((GAME_STATE === "THIRD_TRIP_CHANGE" || GAME_STATE === "CUTSCENE_2") && cutscene_2_state.t >= .5)) {
+    wave_2_strength = 1;
+    wave_1_strength = 0;
+  }
+  if (GAME_STATE === "CUTSCENE_1") {
+    wave_1_strength = cutscene_music_left.t;
+  } else if (GAME_STATE === "CUTSCENE_2" || GAME_STATE === "THIRD_TRIP_CHANGE") {
+    if (cutscene_2_state.t < .5) {
+      wave_1_strength = 1 - cutscene_2_state.t * 2;
+    } else {
+      wave_2_strength = (cutscene_2_state.t - .5) * 2;
+    }
+  }
+  // if (wave_1_strength > 0) {
+  //   ctx_ui.fillStyle = "lime";
+  //   ctx_ui.fillRect(hw - hm * .5 - wave_1_strength * hm * .25, v1_left * canvas_ui.height, hm * .5 * wave_1_strength, canvas_ui.height);
+  //   if (GAME_STATE === "CUTSCENE_1") {
+  //     wave_1_strength = cutscene_music_right.t;
+  //   }
+  //   ctx_ui.fillRect(hw + hm * .5 - wave_1_strength * hm * .25, v1_right * canvas_ui.height, hm * .5 * wave_1_strength, canvas_ui.height);
+  // }
+
+  // dial notches
+  ctx_ui.beginPath();
+  ctx_ui.strokeStyle = "#0F4DA4";
+  for (let k = 0; k <= 1; k += .1) {
+    let ang = remap(k, 0, 1, -Math.PI * .45, Math.PI * .45);
+    let r1 = hh * .8;
+    let r2 = hh * .9;
+    ctx_ui.moveTo(hw + hm + Math.cos(ang) * r1, hh + Math.sin(ang) * r1);
+    ctx_ui.lineTo(hw + hm + Math.cos(ang) * r2, hh + Math.sin(ang) * r2);
+  }
+  ctx_ui.stroke();
+
+  ctx_ui.beginPath();
+  ctx_ui.strokeStyle = "#0F4DA4";
+  for (let k = 0; k <= 1; k += .1) {
+    let ang = Math.PI + remap(k, 0, 1, -Math.PI * .45, Math.PI * .45);
+    let r1 = hh * .8;
+    let r2 = hh * .9;
+    ctx_ui.moveTo(hw - hm + Math.cos(ang) * r1, hh + Math.sin(ang) * r1);
+    ctx_ui.lineTo(hw - hm + Math.cos(ang) * r2, hh + Math.sin(ang) * r2);
+  }
+  ctx_ui.stroke();
+
+  let drawing_1 = (wave_1_strength > 0);
+  let drawing_2 = (wave_2_strength > 0);
+  if (drawing_1 || drawing_2) {
+    let ang_left = remap(drawing_1 ? v1_left : v2_left, 1, 0, -Math.PI * .4, Math.PI * .4) + Math.PI;
+    let ang_right = remap(drawing_1 ? v1_right : v2_right, 0, 1, -Math.PI * .4, Math.PI * .4);
+    let needle_len = hh * .85 * (drawing_1 ? wave_1_strength : wave_2_strength);
+    ctx_ui.beginPath();
+    ctx_ui.strokeStyle = drawing_1 ? "lime" : "cyan";
+    ctx_ui.moveTo(hw - hm, hh);
+    ctx_ui.lineTo(hw - hm + Math.cos(ang_left) * needle_len, hh + Math.sin(ang_left) * needle_len);
+    if (GAME_STATE === "CUTSCENE_1") {
+      wave_1_strength = cutscene_music_right.t;
+      needle_len = hh * .85 * wave_1_strength;
+    }
+    ctx_ui.moveTo(hw + hm, hh);
+    ctx_ui.lineTo(hw + hm + Math.cos(ang_right) * needle_len, hh + Math.sin(ang_right) * needle_len);
+    ctx_ui.stroke();
+  }
+
 
   if (resizeRendererToDisplaySize(renderer)) {
     let aspect = .5 * renderer.domElement.clientWidth / renderer.domElement.clientHeight;
@@ -1124,6 +1210,7 @@ function every_frame(cur_time: number) {
 
     canvas_ui.width = canvas_ui.clientWidth;
     canvas_ui.height = canvas_ui.clientHeight;
+    doGradients();
   }
 
   // renderer.setClearColor(col_v1_left);
@@ -1183,29 +1270,47 @@ function resizeRendererToDisplaySize(renderer: THREE.WebGLRenderer) {
   return needResize;
 }
 
-let hw = canvas_ui.width / 2;
 const hm = 120; // half of middle
-const middle_gradient = ctx_ui.createLinearGradient(hw - hm, 0, hw + hm, 0);
-middle_gradient.addColorStop(0, "green");
-middle_gradient.addColorStop(.02, "cyan");
-middle_gradient.addColorStop(.04, "darkcyan");
-middle_gradient.addColorStop(.08, "#757575");
-middle_gradient.addColorStop(1 - .08, "#757575");
-middle_gradient.addColorStop(1 - .04, "darkcyan");
-middle_gradient.addColorStop(1 - .02, "cyan");
-middle_gradient.addColorStop(1 - 0, "green");
+function doGradients() {
+  let hw = canvas_ui.width / 2;
+  middle_gradient = ctx_ui.createLinearGradient(hw - hm, 0, hw + hm, 0);
+  middle_gradient.addColorStop(0, "green");
+  middle_gradient.addColorStop(.02, "cyan");
+  middle_gradient.addColorStop(.04, "darkcyan");
+  middle_gradient.addColorStop(.08, "#757575");
+  middle_gradient.addColorStop(1 - .08, "#757575");
+  middle_gradient.addColorStop(1 - .04, "darkcyan");
+  middle_gradient.addColorStop(1 - .02, "cyan");
+  middle_gradient.addColorStop(1 - 0, "green");
 
-const top_gradient = ctx_ui.createLinearGradient(0, 0, 0, 20);
-top_gradient.addColorStop(0, "green");
-top_gradient.addColorStop(0.4, "cyan");
-top_gradient.addColorStop(0.6, "darkcyan");
-top_gradient.addColorStop(1, "darkgreen");
+  top_gradient = ctx_ui.createLinearGradient(0, 0, 0, 20);
+  top_gradient.addColorStop(0, "green");
+  top_gradient.addColorStop(0.4, "cyan");
+  top_gradient.addColorStop(0.6, "darkcyan");
+  top_gradient.addColorStop(1, "darkgreen");
 
-const bottom_gradient = ctx_ui.createLinearGradient(0, canvas_ui.height - 20, 0, canvas_ui.height);
-bottom_gradient.addColorStop(0, "green");
-bottom_gradient.addColorStop(0.4, "cyan");
-bottom_gradient.addColorStop(0.6, "darkcyan");
-bottom_gradient.addColorStop(1, "darkgreen");
+  bottom_gradient = ctx_ui.createLinearGradient(0, canvas_ui.height - 20, 0, canvas_ui.height);
+  bottom_gradient.addColorStop(0, "green");
+  bottom_gradient.addColorStop(0.4, "cyan");
+  bottom_gradient.addColorStop(0.6, "darkcyan");
+  bottom_gradient.addColorStop(1, "darkgreen");
+
+  bg_gradient = ctx_ui.createLinearGradient(0, 0, 0, canvas_ui.height);
+  bg_gradient.addColorStop(0, "#0B91C6");
+  bg_gradient.addColorStop(1, "#0F4DA4");
+
+  gauge_right_gradient = ctx_ui.createLinearGradient(0, 0, 0, canvas_ui.height);
+  gauge_right_gradient.addColorStop(1, "#0B91C6");
+  gauge_right_gradient.addColorStop(0, "#0F4DA4");
+
+}
+
+let middle_gradient: CanvasGradient;
+let top_gradient: CanvasGradient;
+let bottom_gradient: CanvasGradient;
+let bg_gradient: CanvasGradient;
+let gauge_right_gradient: CanvasGradient;
+doGradients();
 
 function clamp(value: number, a: number, b: number) {
   if (value < a) return a;
