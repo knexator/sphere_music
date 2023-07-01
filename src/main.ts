@@ -439,18 +439,18 @@ let cutscene_text_state = {
   n_chars_shown: 0,
 };
 
-let text_mission_1 = "Mission 1/3:\nPress Space when the G-Waves\nare equal at both antipodes";
+let text_mission_1 = "Mission 1/3:\nFind a spot where the G-Waves\nare equal at both antipodes";
 let text_waiting_2 = "Good job!\nVisit the Reconfiguring Beam\nto alter your detectors";
 let text_cutscene_2 = "\nSwitching to B-Waves...";
-let text_mission_2 = "Mission 2/3:\nPress Space when the B-Waves\nare equal at both antipodes";
+let text_mission_2 = "Mission 2/3:\nFind a spot where the B-Waves\nare equal at both antipodes";
 // let text_cutscene_3 = "Good job!\nProviding the last Reconfiguring Beam...\nUse it wisely, only once you're prepared.";
 // let text_mission_3 = "Mission 3/3:\nPress Space when both\nG-Waves and B-Waves\nare equal at both antipodes";
 let text_mission_3 = "Mission 3/3:\nPress Space when both\nG-Waves and B-Waves\nare equal at both antipodes.\n\n\n\n\n\n\n\n\n\n\nThis is the last Reconfiguring Beam.\nUse it wisely.";
 let text_cutscene_end = "Congratulations!\nYou win!";
 
 const DEBUG_SKIP_CUTSCENE = false;
-const DEBUG_AUTO_PLACE_1 = false;
-const DEBUG_AUTO_PLACE_2 = false;
+const DEBUG_AUTO_PLACE_1 = true;
+const DEBUG_AUTO_PLACE_2 = true;
 
 let pos_left = new THREE.Vector3();
 let pos_right = new THREE.Vector3();
@@ -472,6 +472,7 @@ let input_state = {
   ccw: false,
   precision: false,
   action_just_pressed: false,
+  final_action_just_pressed: false,
 };
 
 const input_to_keycode = {
@@ -482,7 +483,8 @@ const input_to_keycode = {
   left: "KeyE",
   right: "KeyQ",
   precision: "ShiftLeft ShiftRight".split(' '),
-  action_just_pressed: "Space",
+  // action_just_pressed: "Space",
+  final_action_just_pressed: "Space",
 };
 
 document.addEventListener("keydown", ev => {
@@ -576,14 +578,95 @@ function every_frame(cur_time: number) {
 
   let cur_sign_1 = Math.sign(v1_left - v1_right);
   let cur_sign_2 = Math.sign(v2_left - v2_right);
-  if (DEBUG_AUTO_PLACE_1 && last_sign_1 !== null && last_sign_1 !== cur_sign_1) {
+  if (DEBUG_AUTO_PLACE_1 && (GAME_STATE === "FIRST_TRIP" || GAME_STATE === "THIRD_TRIP_B") && last_sign_1 !== null && last_sign_1 !== cur_sign_1) {
     input_state.action_just_pressed = true;
   }
-  if (DEBUG_AUTO_PLACE_2 && last_sign_2 !== null && last_sign_2 !== cur_sign_2) {
+  if (DEBUG_AUTO_PLACE_2 && (GAME_STATE === "SECOND_TRIP" || GAME_STATE === "THIRD_TRIP_A") && last_sign_2 !== null && last_sign_2 !== cur_sign_2) {
     input_state.action_just_pressed = true;
   }
   last_sign_1 = cur_sign_1;
   last_sign_2 = cur_sign_2;
+
+  if (input_state.final_action_just_pressed && GAME_STATE === "THIRD_TRIP_B") {
+    let correct_1 = Math.abs(v1_left - v1_right) < 0.05;
+    let correct_2 = Math.abs(v2_left - v2_right) < 0.05;
+    if (correct_1 && correct_2) {
+      // victory!
+      // erase mission text
+      anime({
+        targets: cutscene_text_state,
+        n_chars_shown: 0,
+        duration: 800,
+        easing: "linear",
+        update(_anim) {
+          ui_text_element.innerText = text_mission_3.slice(0, cutscene_text_state.n_chars_shown);
+        },
+        complete(_anim) {
+          // victory text
+          anime({
+            targets: cutscene_text_state,
+            n_chars_shown: text_cutscene_end.length,
+            duration: 1200,
+            easing: "linear",
+            update(_anim) {
+              ui_text_element.innerText = text_cutscene_end.slice(0, cutscene_text_state.n_chars_shown);
+            },
+          });
+        }
+      });
+      // players fly away
+      let ending_cutscene_camera_state = { t: 0 };
+      anime({
+        targets: ending_cutscene_camera_state,
+        t: [0, 1],
+        delay: DEBUG_SKIP_CUTSCENE ? 10 : 200,
+        duration: DEBUG_SKIP_CUTSCENE ? 10 : 1000,
+        easing: "easeInQuad",
+        update(_anim) {
+          camera_left.zoom = lerp(1, .3, ending_cutscene_camera_state.t);
+          camera_right.zoom = lerp(1, .3, ending_cutscene_camera_state.t);
+          camera_left.updateProjectionMatrix();
+          camera_right.updateProjectionMatrix();
+        },
+      });
+      let ending_cutscene_fly_state = { t: 0 };
+      anime({
+        targets: ending_cutscene_fly_state,
+        t: [0, 1],
+        delay: DEBUG_SKIP_CUTSCENE ? 10 : 700,
+        duration: DEBUG_SKIP_CUTSCENE ? 10 : 5000,
+        easing: "easeInQuad",
+        update(_anim) {
+          player_right.position.setZ(lerp(-1, -10, ending_cutscene_fly_state.t))
+          player_left.position.setZ(lerp(1, 10, ending_cutscene_fly_state.t));
+        },
+      });
+    } else {
+      // screen shake
+      let left_camera_pos = camera_left.position.clone();
+      let right_camera_pos = camera_right.position.clone();
+      let camera_shake_state = { t: 0, prev_t: 0 };
+      anime({
+        targets: camera_shake_state,
+        t: [0, 1],
+        easing: "steps(5)",
+        duration: 300,
+        update(_anim) {
+          if (camera_shake_state.t !== camera_shake_state.prev_t) {
+            camera_shake_state.prev_t = camera_shake_state.t
+            camera_right.position.copy(right_camera_pos);
+            camera_right.position.add(new THREE.Vector3((Math.random() - .5) * .01, (Math.random() - .5) * .05, (Math.random() - .5) * .05));
+            camera_left.position.copy(left_camera_pos);
+            camera_left.position.add(new THREE.Vector3((Math.random() - .5) * .01, (Math.random() - .5) * .05, (Math.random() - .5) * .05));
+          }
+        },
+        complete(_anim) {
+          camera_left.position.copy(left_camera_pos);
+          camera_right.position.copy(right_camera_pos);
+        },
+      })
+    }
+  }
 
   if (input_state.action_just_pressed && (GAME_STATE === "FIRST_TRIP" || GAME_STATE === "SECOND_TRIP" || GAME_STATE === "THIRD_TRIP_A" || GAME_STATE === "THIRD_TRIP_B")) {
     input_state.action_just_pressed = false;
@@ -603,10 +686,11 @@ function every_frame(cur_time: number) {
     let glow_color = new THREE.Color(1, 0, 0);
     let correct_1 = Math.abs(v1_left - v1_right) < 0.05;
     let correct_2 = Math.abs(v2_left - v2_right) < 0.05;
+    // let correct = (GAME_STATE === "FIRST_TRIP" && correct_1) || ((GAME_STATE === "THIRD_TRIP_A" || GAME_STATE === "SECOND_TRIP") && correct_2) || ((GAME_STATE === "THIRD_TRIP_B") && correct_1 && correct_2);
     let correct = ((GAME_STATE === "THIRD_TRIP_B" || GAME_STATE === "FIRST_TRIP") && correct_1) || ((GAME_STATE === "THIRD_TRIP_A" || GAME_STATE === "SECOND_TRIP") && correct_2);
     if (correct) {
       glow_color = new THREE.Color(0, 1, 0);
-      if (correct_2) {
+      if (correct_2 && !(GAME_STATE === "THIRD_TRIP_B")) {
         glow_color = new THREE.Color(0, 1, 1);
       }
       n_correctly_placed += 1;
@@ -681,32 +765,7 @@ function every_frame(cur_time: number) {
             },
           });
         } else if (GAME_STATE === "THIRD_TRIP_B") {
-          // victory!
-
-          // erase mission text
-          anime({
-            targets: cutscene_text_state,
-            n_chars_shown: 0,
-            duration: 800,
-            easing: "linear",
-            update(_anim) {
-              ui_text_element.innerText = text_mission_3.slice(0, cutscene_text_state.n_chars_shown);
-            },
-            complete(_anim) {
-              // victory text
-              anime({
-                targets: cutscene_text_state,
-                n_chars_shown: text_cutscene_end.length,
-                duration: 1200,
-                easing: "linear",
-                update(_anim) {
-                  ui_text_element.innerText = text_cutscene_end.slice(0, cutscene_text_state.n_chars_shown);
-                },
-              });
-            }
-          });
-
-          // todo: players fly away
+          n_correctly_placed = 0;
         }
       }
     } else {
