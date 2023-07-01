@@ -418,7 +418,7 @@ async function init_audio() {
             targets: cutscene_text_state,
             n_chars_shown: [0, text_mission_1.length],
             easing: "linear",
-            duration: DEBUG_SKIP_CUTSCENE ? 10 : 3000,
+            duration: DEBUG_SKIP_CUTSCENE ? 10 : 800,
             update(_anim) {
               ui_text_element.innerText = text_mission_1.slice(0, cutscene_text_state.n_chars_shown);
             },
@@ -526,7 +526,7 @@ function rotateCamera(cam: THREE.Camera, v: THREE.Vector2) {
   cam.lookAt(0, 0, 0);
 }
 
-const BEAM_POS_1 = new THREE.Vector3(0, 0, 1);
+const BEAM_POS_1 = new THREE.Vector3(0, 1, 0);
 const BEAM_POS_2 = new THREE.Vector3(0, 1, 0);
 
 let last_sign_1: number | null = null;
@@ -587,7 +587,7 @@ function every_frame(cur_time: number) {
   last_sign_1 = cur_sign_1;
   last_sign_2 = cur_sign_2;
 
-  if (input_state.final_action_just_pressed && GAME_STATE === "THIRD_TRIP_B") {
+  if (input_state.final_action_just_pressed && (GAME_STATE === "THIRD_TRIP_B" || GAME_STATE === "THIRD_TRIP_A")) {
     let correct_1 = Math.abs(v1_left - v1_right) < 0.05;
     let correct_2 = Math.abs(v2_left - v2_right) < 0.05;
     if (correct_1 && correct_2) {
@@ -596,7 +596,7 @@ function every_frame(cur_time: number) {
       anime({
         targets: cutscene_text_state,
         n_chars_shown: 0,
-        duration: 800,
+        duration: 400,
         easing: "linear",
         update(_anim) {
           ui_text_element.innerText = text_mission_3.slice(0, cutscene_text_state.n_chars_shown);
@@ -606,7 +606,7 @@ function every_frame(cur_time: number) {
           anime({
             targets: cutscene_text_state,
             n_chars_shown: text_cutscene_end.length,
-            duration: 1200,
+            duration: 800,
             easing: "linear",
             update(_anim) {
               ui_text_element.innerText = text_cutscene_end.slice(0, cutscene_text_state.n_chars_shown);
@@ -701,7 +701,7 @@ function every_frame(cur_time: number) {
           anime({
             targets: cutscene_text_state,
             n_chars_shown: 0,
-            duration: 800,
+            duration: 400,
             easing: "linear",
             update(_anim) {
               ui_text_element.innerText = text_mission_1.slice(0, cutscene_text_state.n_chars_shown);
@@ -722,7 +722,7 @@ function every_frame(cur_time: number) {
                 targets: cutscene_text_state,
                 n_chars_shown: [0, text_waiting_2.length],
                 easing: "linear",
-                duration: 1400,
+                duration: 800,
                 update(_anim) {
                   ui_text_element.innerText = text_waiting_2.slice(0, cutscene_text_state.n_chars_shown);
                 },
@@ -735,7 +735,7 @@ function every_frame(cur_time: number) {
           anime({
             targets: cutscene_text_state,
             n_chars_shown: 0,
-            duration: 800,
+            duration: 400,
             easing: "linear",
             update(_anim) {
               ui_text_element.innerText = text_mission_2.slice(0, cutscene_text_state.n_chars_shown);
@@ -756,7 +756,7 @@ function every_frame(cur_time: number) {
                 targets: cutscene_text_state,
                 n_chars_shown: [0, text_mission_3.length],
                 easing: "linear",
-                duration: 2400,
+                duration: 800,
                 update(_anim) {
                   ui_text_element.innerText = text_mission_3.slice(0, cutscene_text_state.n_chars_shown);
                 },
@@ -845,7 +845,7 @@ function every_frame(cur_time: number) {
           targets: cutscene_text_state,
           n_chars_shown: [0, text_cutscene_2.length],
           easing: "linear",
-          duration: 1200,
+          duration: 800,
           update(_anim) {
             ui_text_element.innerText = text_cutscene_2.slice(0, cutscene_text_state.n_chars_shown);
           },
@@ -854,8 +854,8 @@ function every_frame(cur_time: number) {
         anime({
           targets: cutscene_2_state,
           t: [0, 1],
-          delay: 1600,
-          duration: 1500,
+          delay: 800,
+          duration: 1200,
           easing: "linear",
           complete(_anim) {
             GAME_STATE = "SECOND_TRIP";
@@ -864,7 +864,7 @@ function every_frame(cur_time: number) {
               targets: cutscene_text_state,
               n_chars_shown: [0, text_mission_2.length],
               easing: "linear",
-              duration: DEBUG_SKIP_CUTSCENE ? 10 : 3000,
+              duration: DEBUG_SKIP_CUTSCENE ? 10 : 800,
               update(_anim) {
                 ui_text_element.innerText = text_mission_2.slice(0, cutscene_text_state.n_chars_shown);
               },
