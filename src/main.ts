@@ -1152,6 +1152,7 @@ function every_frame(cur_time: number) {
   // }
 
   // dial notches
+  ctx_ui.lineWidth = 2;
   ctx_ui.beginPath();
   ctx_ui.strokeStyle = "#0F4DA4";
   for (let k = 0; k <= 1; k += .1) {
@@ -1174,6 +1175,8 @@ function every_frame(cur_time: number) {
   }
   ctx_ui.stroke();
 
+  // dials
+  ctx_ui.lineWidth = 3;
   let drawing_1 = (wave_1_strength > 0);
   let drawing_2 = (wave_2_strength > 0);
   if (drawing_1 || drawing_2) {
@@ -1270,7 +1273,7 @@ function resizeRendererToDisplaySize(renderer: THREE.WebGLRenderer) {
   return needResize;
 }
 
-const hm = 120; // half of middle
+const hm = 60; // half of middle
 function doGradients() {
   let hw = canvas_ui.width / 2;
   middle_gradient = ctx_ui.createLinearGradient(hw - hm, 0, hw + hm, 0);
