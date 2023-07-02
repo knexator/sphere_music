@@ -2,6 +2,7 @@ import * as THREE from 'three';
 // import GUI from 'lil-gui';
 import { inverseLerp, lerp } from 'three/src/math/MathUtils.js';
 import anime from 'animejs';
+import { noise } from "@chriscourses/perlin-noise";
 import { GLTF, GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import model_rover_url from "./models/rover.glb?url"
 import model_sonar_url from "./models/sonar.glb?url"
@@ -62,7 +63,7 @@ function variables(pos: THREE.Vector3): [number, number] {
   // var b = noise_data.data[offset + 2];
   // var a = noise_data.data[offset + 3];
   // return noise(pos.x + .2, pos.y + .3, pos.z + .4);
-  return [g, r];
+  return [r, g];
 }
 
 THREE.DefaultLoadingManager.onLoad = () => {
@@ -449,8 +450,8 @@ let text_mission_3 = "Mission 3/3:\nPress Enter when both\nG-Waves and B-Waves\n
 let text_cutscene_end = "Congratulations!\nYou win!";
 
 const DEBUG_SKIP_CUTSCENE = false;
-const DEBUG_AUTO_PLACE_1 = false;
-const DEBUG_AUTO_PLACE_2 = false;
+const DEBUG_AUTO_PLACE_1 = true;
+const DEBUG_AUTO_PLACE_2 = true;
 
 let pos_left = new THREE.Vector3();
 let pos_right = new THREE.Vector3();
@@ -526,8 +527,8 @@ function rotateCamera(cam: THREE.Camera, v: THREE.Vector2) {
   cam.lookAt(0, 0, 0);
 }
 
-const BEAM_POS_1 = new THREE.Vector3(0, 1, 0);
-const BEAM_POS_2 = new THREE.Vector3(0, 1, 0);
+const BEAM_POS_1 = new THREE.Vector3(.2, .5, .8).normalize();
+const BEAM_POS_2 = BEAM_POS_1.clone();
 
 let last_sign_1: number | null = null;
 let last_sign_2: number | null = null;
@@ -586,6 +587,10 @@ function every_frame(cur_time: number) {
   }
   last_sign_1 = cur_sign_1;
   last_sign_2 = cur_sign_2;
+
+  if (input_state.final_action_just_pressed) {
+    console.log(player_left.getWorldPosition(tmp_vec_1));
+  }
 
   if (input_state.final_action_just_pressed && (GAME_STATE === "THIRD_TRIP_B" || GAME_STATE === "THIRD_TRIP_A")) {
     let correct_1 = Math.abs(v1_left - v1_right) < 0.05;
