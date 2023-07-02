@@ -450,8 +450,8 @@ let text_mission_3 = "Mission 3/3:\nPress Enter when both\nG-Waves and B-Waves\n
 let text_cutscene_end = "Congratulations!\nYou win!";
 
 const DEBUG_SKIP_CUTSCENE = false;
-const DEBUG_AUTO_PLACE_1 = true;
-const DEBUG_AUTO_PLACE_2 = true;
+const DEBUG_AUTO_PLACE_1 = false;
+const DEBUG_AUTO_PLACE_2 = false;
 
 let pos_left = new THREE.Vector3();
 let pos_right = new THREE.Vector3();
@@ -673,7 +673,9 @@ function every_frame(cur_time: number) {
     }
   }
 
-  if (input_state.action_just_pressed && (GAME_STATE === "FIRST_TRIP" || GAME_STATE === "SECOND_TRIP" || GAME_STATE === "THIRD_TRIP_A" || GAME_STATE === "THIRD_TRIP_B")) {
+  let correct_1 = Math.abs(v1_left - v1_right) < 0.025;
+  let correct_2 = Math.abs(v2_left - v2_right) < 0.025;
+  if (input_state.action_just_pressed && (GAME_STATE === "FIRST_TRIP" || GAME_STATE === "SECOND_TRIP" || GAME_STATE === "THIRD_TRIP_A")) {
     input_state.action_just_pressed = false;
 
     const cur_marker_left = sonar_model.scene.clone();
@@ -689,13 +691,11 @@ function every_frame(cur_time: number) {
     scene.add(cur_marker_right);
 
     let glow_color = new THREE.Color(1, 0, 0);
-    let correct_1 = Math.abs(v1_left - v1_right) < 0.05;
-    let correct_2 = Math.abs(v2_left - v2_right) < 0.05;
     // let correct = (GAME_STATE === "FIRST_TRIP" && correct_1) || ((GAME_STATE === "THIRD_TRIP_A" || GAME_STATE === "SECOND_TRIP") && correct_2) || ((GAME_STATE === "THIRD_TRIP_B") && correct_1 && correct_2);
-    let correct = ((GAME_STATE === "THIRD_TRIP_B" || GAME_STATE === "FIRST_TRIP") && correct_1) || ((GAME_STATE === "THIRD_TRIP_A" || GAME_STATE === "SECOND_TRIP") && correct_2);
+    let correct = (GAME_STATE === "FIRST_TRIP" && correct_1) || ((GAME_STATE === "THIRD_TRIP_A" || GAME_STATE === "SECOND_TRIP") && correct_2);
     if (correct) {
       glow_color = new THREE.Color(0, 1, 0);
-      if (correct_2 && !(GAME_STATE === "THIRD_TRIP_B")) {
+      if (correct_2) {
         glow_color = new THREE.Color(0, 1, 1);
       }
       n_correctly_placed += 1;
@@ -769,8 +769,6 @@ function every_frame(cur_time: number) {
               });
             },
           });
-        } else if (GAME_STATE === "THIRD_TRIP_B") {
-          n_correctly_placed = 0;
         }
       }
     } else {
