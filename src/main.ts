@@ -2,7 +2,7 @@ import * as THREE from 'three';
 // import GUI from 'lil-gui';
 import { inverseLerp, lerp } from 'three/src/math/MathUtils.js';
 import anime from 'animejs';
-import { noise } from "@chriscourses/perlin-noise";
+// import { noise } from "@chriscourses/perlin-noise";
 import { GLTF, GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import model_rover_url from "./models/rover.glb?url"
 import model_sonar_url from "./models/sonar.glb?url"
@@ -10,7 +10,7 @@ import model_beam_url from "./models/beam.glb?url"
 import sphere_texture_url from "./imgs/phobos.webp?url"
 
 const sound_counts = {
-  acid: 8,
+  acid: 6,
   // chords: 8,
   // new: 5,
   test_21: 6,
@@ -489,6 +489,7 @@ const input_to_keycode = {
 };
 
 document.addEventListener("keydown", ev => {
+  if (ev.repeat) return;
   for (const [input, keycodes] of Object.entries(input_to_keycode)) {
     if (keycodes.includes(ev.code)) {
       // @ts-ignore
@@ -528,7 +529,7 @@ function rotateCamera(cam: THREE.Camera, v: THREE.Vector2) {
 }
 
 const BEAM_POS_1 = new THREE.Vector3(.2, .5, .8).normalize();
-const BEAM_POS_2 = BEAM_POS_1.clone();
+const BEAM_POS_2 = new THREE.Vector3(.25, .6, -.75).normalize();
 
 let last_sign_1: number | null = null;
 let last_sign_2: number | null = null;
@@ -673,8 +674,8 @@ function every_frame(cur_time: number) {
     }
   }
 
-  let correct_1 = Math.abs(v1_left - v1_right) < 0.025;
-  let correct_2 = Math.abs(v2_left - v2_right) < 0.025;
+  let correct_1 = Math.abs(v1_left - v1_right) < 0.0175;
+  let correct_2 = Math.abs(v2_left - v2_right) < 0.0175;
   if (input_state.action_just_pressed && (GAME_STATE === "FIRST_TRIP" || GAME_STATE === "SECOND_TRIP" || GAME_STATE === "THIRD_TRIP_A")) {
     input_state.action_just_pressed = false;
 
@@ -779,6 +780,7 @@ function every_frame(cur_time: number) {
         y: .1,
         z: .1,
         duration: 1200,
+        easing: "easeInQuad",
         complete(_anim) {
           scene.remove(cur_marker_left);
         },
