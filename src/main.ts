@@ -227,8 +227,8 @@ async function init_audio() {
   player_left = rover_model.scene.clone();
   player_right = rover_model.scene.clone();
 
-  player_left.position.setZ(1);
-  player_right.position.setZ(-1);
+  player_left.position.setZ(3);
+  player_right.position.setZ(-3);
   player_right.rotateX(Math.PI);
 
   players.add(player_left, player_right);
