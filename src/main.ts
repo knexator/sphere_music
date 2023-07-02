@@ -534,6 +534,9 @@ const BEAM_POS_2 = new THREE.Vector3(.25, .6, -.75).normalize();
 let last_sign_1: number | null = null;
 let last_sign_2: number | null = null;
 
+let last_cross_pos_left = new THREE.Vector3();
+// let last_cross_pos_2_left = new THREE.Vector3();
+
 let ui_time = 0;
 
 let last_time = 0;
@@ -580,11 +583,18 @@ function every_frame(cur_time: number) {
 
   let cur_sign_1 = Math.sign(v1_left - v1_right);
   let cur_sign_2 = Math.sign(v2_left - v2_right);
-  if (DEBUG_AUTO_PLACE_1 && (GAME_STATE === "FIRST_TRIP" || GAME_STATE === "THIRD_TRIP_B") && last_sign_1 !== null && last_sign_1 !== cur_sign_1) {
-    input_state.action_just_pressed = true;
+  if (last_sign_1 !== null && last_sign_1 !== cur_sign_1 && (GAME_STATE === "FIRST_TRIP" || GAME_STATE === "THIRD_TRIP_B")) {
+    console.log("crossed a 1 line")
+    if (DEBUG_AUTO_PLACE_1) {
+      input_state.action_just_pressed = true;
+    }
+    player_left.getWorldPosition(last_cross_pos_left)
   }
-  if (DEBUG_AUTO_PLACE_2 && (GAME_STATE === "SECOND_TRIP" || GAME_STATE === "THIRD_TRIP_A") && last_sign_2 !== null && last_sign_2 !== cur_sign_2) {
-    input_state.action_just_pressed = true;
+  if ((GAME_STATE === "SECOND_TRIP" || GAME_STATE === "THIRD_TRIP_A") && last_sign_2 !== null && last_sign_2 !== cur_sign_2) {
+    if (DEBUG_AUTO_PLACE_2) {
+      input_state.action_just_pressed = true;
+    }
+    player_left.getWorldPosition(last_cross_pos_left)
   }
   last_sign_1 = cur_sign_1;
   last_sign_2 = cur_sign_2;
@@ -674,26 +684,35 @@ function every_frame(cur_time: number) {
     }
   }
 
-  let correct_1 = Math.abs(v1_left - v1_right) < 0.0175;
-  let correct_2 = Math.abs(v2_left - v2_right) < 0.0175;
+  let correct_1 = Math.abs(v1_left - v1_right) < 0.025;
+  let correct_2 = Math.abs(v2_left - v2_right) < 0.025;
   if (input_state.action_just_pressed && (GAME_STATE === "FIRST_TRIP" || GAME_STATE === "SECOND_TRIP" || GAME_STATE === "THIRD_TRIP_A")) {
     input_state.action_just_pressed = false;
+    let correct = (GAME_STATE === "FIRST_TRIP" && correct_1) || ((GAME_STATE === "THIRD_TRIP_A" || GAME_STATE === "SECOND_TRIP") && correct_2);
 
     const cur_marker_left = sonar_model.scene.clone();
-    player_left.getWorldPosition(cur_marker_left.position);
-    player_left.getWorldQuaternion(tmp_quat_1);
-    cur_marker_left.rotation.setFromQuaternion(tmp_quat_1);
-    scene.add(cur_marker_left);
-
     const cur_marker_right = sonar_model.scene.clone();
-    player_right.getWorldPosition(cur_marker_right.position);
-    player_right.getWorldQuaternion(tmp_quat_1);
-    cur_marker_right.rotation.setFromQuaternion(tmp_quat_1);
-    scene.add(cur_marker_right);
+    if (correct && last_cross_pos_left.lengthSq() > .1) {
+      cur_marker_left.position.copy(last_cross_pos_left);
+      cur_marker_left.lookAt(0, 0, 0);
+      cur_marker_left.rotateX(Math.PI);
+
+      cur_marker_right.position.copy(last_cross_pos_left);
+      cur_marker_right.position.multiplyScalar(-1);
+      cur_marker_right.lookAt(0, 0, 0);
+      cur_marker_right.rotateX(Math.PI);
+    } else {
+      player_left.getWorldPosition(cur_marker_left.position);
+      player_left.getWorldQuaternion(tmp_quat_1);
+      cur_marker_left.rotation.setFromQuaternion(tmp_quat_1);
+      player_right.getWorldPosition(cur_marker_right.position);
+      player_right.getWorldQuaternion(tmp_quat_1);
+      cur_marker_right.rotation.setFromQuaternion(tmp_quat_1);
+    }
+    scene.add(cur_marker_left, cur_marker_right);
 
     let glow_color = new THREE.Color(1, 0, 0);
     // let correct = (GAME_STATE === "FIRST_TRIP" && correct_1) || ((GAME_STATE === "THIRD_TRIP_A" || GAME_STATE === "SECOND_TRIP") && correct_2) || ((GAME_STATE === "THIRD_TRIP_B") && correct_1 && correct_2);
-    let correct = (GAME_STATE === "FIRST_TRIP" && correct_1) || ((GAME_STATE === "THIRD_TRIP_A" || GAME_STATE === "SECOND_TRIP") && correct_2);
     if (correct) {
       glow_color = new THREE.Color(0, 1, 0);
       if (correct_2) {
