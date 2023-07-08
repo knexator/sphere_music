@@ -423,6 +423,9 @@ async function init_audio() {
             update(_anim) {
               ui_text_element.innerText = text_mission_1.slice(0, cutscene_text_state.n_chars_shown);
             },
+            complete(_anim) {
+              ui_text_element.innerText += "\n(0/3)"
+            },
           });
 
           GAME_STATE = "FIRST_TRIP"
@@ -604,6 +607,7 @@ function every_frame(cur_time: number) {
   }
 
   if (input_state.final_action_just_pressed && (GAME_STATE === "THIRD_TRIP_B" || GAME_STATE === "THIRD_TRIP_A")) {
+    input_state.final_action_just_pressed = false;
     let correct_1 = Math.abs(v1_left - v1_right) < 0.05;
     let correct_2 = Math.abs(v2_left - v2_right) < 0.05;
     if (correct_1 && correct_2) {
@@ -719,7 +723,12 @@ function every_frame(cur_time: number) {
         glow_color = new THREE.Color(0, 1, 1);
       }
       n_correctly_placed += 1;
-      if (n_correctly_placed == 1) {
+      if (GAME_STATE === "FIRST_TRIP") {
+        ui_text_element.innerText = `${text_mission_1}\n(${n_correctly_placed}/3)`;
+      } else if (GAME_STATE === "SECOND_TRIP") {
+        ui_text_element.innerText = `${text_mission_2}\n(${n_correctly_placed}/3)`;
+      }
+      if (n_correctly_placed == 3) {
         if (GAME_STATE === "FIRST_TRIP") {
           GAME_STATE = "WAITING_2";
           // erase mission text
@@ -892,6 +901,9 @@ function every_frame(cur_time: number) {
               update(_anim) {
                 ui_text_element.innerText = text_mission_2.slice(0, cutscene_text_state.n_chars_shown);
               },
+              complete(_anim) {
+                ui_text_element.innerText += "\n(0/3)"
+              },  
             });
           },
         });
